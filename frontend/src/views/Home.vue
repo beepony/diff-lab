@@ -1,12 +1,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import StepImport from '../components/StepImport.vue'
-import StepMode from '../components/StepMode.vue'
-import StepResult from '../components/StepResult.vue'
-import { createTask, previewDiff, listTasks } from '../api'
+import { useI18n } from 'vue-i18n'
+import StepImport from '@/components/StepImport.vue'
+import StepMode from '@/components/StepMode.vue'
+import StepResult from '@/components/StepResult.vue'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import { createTask, previewDiff, listTasks } from '@/api'
 
 const router = useRouter()
+const { t, locale } = useI18n()
 
 // 表单状态
 const title = ref('')
@@ -47,7 +50,7 @@ const handlePreview = async () => {
       options: options.value,
     })
   } catch (e) {
-    alert('预览失败：' + (e.response?.data?.detail || e.message))
+    alert(t('alerts.previewFailed') + (e.response?.data?.detail || e.message))
   } finally {
     previewing.value = false
   }
@@ -66,14 +69,14 @@ const handleSave = async () => {
     })
     router.push(`/task/${task.id}`)
   } catch (e) {
-    alert('保存失败：' + (e.response?.data?.detail || e.message))
+    alert(t('alerts.saveFailed') + (e.response?.data?.detail || e.message))
   } finally {
     saving.value = false
   }
 }
 
 const loadDemo = () => {
-  title.value = '示例：用户名单核验'
+  title.value = locale.value === 'zh-CN' ? '示例：用户名单核验' : 'Demo: User List Verification'
   columnA.value = 'user_10234\nuser_10247\nuser_10258\nuser_10271\nuser_10295'
   columnB.value = 'user_10234\nuser_10258\nuser_10301\nuser_10315\nuser_10322\n\nuser_10348'
 }
@@ -83,11 +86,7 @@ const formatDate = (iso) => {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-const modeName = (m) => ({
-  find_diff: '找差异',
-  vlookup: 'VLOOKUP',
-  intersect: '找交集',
-}[m] || m)
+const modeName = (m) => t(`modes.${m}.name`)
 
 onMounted(loadHistory)
 </script>
@@ -96,10 +95,11 @@ onMounted(loadHistory)
   <div class="page">
     <!-- Hero -->
     <header class="hero">
-      <h1>Diff.lab</h1>
-      <p class="sub">两列数据差异对比工具 · 支持历史保存与团队分享</p>
+      <h1>{{ t('app.name') }}</h1>
+      <p class="sub">{{ t('app.tagline') }} · {{ t('app.description') }}</p>
       <div class="actions">
-        <button class="btn btn-solid" @click="loadDemo">📋 加载示例</button>
+        <button class="btn btn-solid" @click="loadDemo">📋 {{ t('app.loadDemo') }}</button>
+        <LanguageSwitcher />
       </div>
     </header>
 
@@ -108,16 +108,16 @@ onMounted(loadHistory)
       <section class="step">
         <div class="step-head">
           <div class="step-num">1</div>
-          <div class="step-title">导入数据</div>
+          <div class="step-title">{{ t('home.stepImport') }}</div>
         </div>
         <div class="step-body">
           <div class="title-input">
-            <label>对比名称（可选，用于保存到历史）</label>
-            <input v-model="title" type="text" placeholder="例如：2026-Q3 用户名单核验" />
+            <label>{{ t('home.titleLabel') }}</label>
+            <input v-model="title" type="text" :placeholder="t('home.titlePlaceholder')" />
           </div>
           <div class="dual-input">
-            <StepImport v-model="columnA" label="A 列（每行一个值）" placeholder="user_10234&#10;user_10247&#10;..." />
-            <StepImport v-model="columnB" label="B 列（每行一个值）" placeholder="user_10234&#10;user_10258&#10;..." />
+            <StepImport v-model="columnA" :label="'input.columnA'" />
+            <StepImport v-model="columnB" :label="'input.columnB'" />
           </div>
         </div>
       </section>
@@ -126,7 +126,7 @@ onMounted(loadHistory)
       <section class="step">
         <div class="step-head">
           <div class="step-num">2</div>
-          <div class="step-title">选择对比模式</div>
+          <div class="step-title">{{ t('home.stepMode') }}</div>
         </div>
         <div class="step-body">
           <StepMode v-model="mode" v-model:options="options" />
@@ -137,40 +137,44 @@ onMounted(loadHistory)
       <section class="step">
         <div class="step-head">
           <div class="step-num">3</div>
-          <div class="step-title">对比结果</div>
+          <div class="step-title">{{ t('home.stepResult') }}</div>
           <div class="step-actions">
             <button class="btn" :disabled="!canPreview || previewing" @click="handlePreview">
-              {{ previewing ? '对比中...' : '▶ 预览' }}
+              {{ previewing ? t('home.previewing') : '▶ ' + t('home.preview') }}
             </button>
             <button class="btn btn-primary" :disabled="!canSave || saving" @click="handleSave">
-              {{ saving ? '保存中...' : '💾 保存到历史' }}
+              {{ saving ? t('home.saving') : '💾 ' + t('home.saveToHistory') }}
             </button>
           </div>
         </div>
         <div class="step-body">
           <StepResult v-if="previewResult" :result="previewResult" />
           <div v-else class="empty-hint">
-            <p>👆 填写 A/B 两列数据，点击「预览」查看对比结果</p>
+            <p>{{ t('home.emptyHint') }}</p>
           </div>
         </div>
       </section>
 
       <!-- 历史 -->
       <section v-if="history.length" class="history-strip">
-        <h3>最近对比 ({{ history.length }})</h3>
+        <h3>{{ t('home.historyCount', { count: history.length }) }}</h3>
         <div class="history-grid">
           <router-link
-            v-for="t in history"
-            :key="t.id"
-            :to="`/task/${t.id}`"
+            v-for="t_item in history"
+            :key="t_item.id"
+            :to="`/task/${t_item.id}`"
             class="history-tile"
           >
-            <div class="name">{{ t.title }}</div>
-            <div class="meta">{{ formatDate(t.created_at) }} · {{ modeName(t.mode) }}</div>
-            <div v-if="t.result_meta" class="stats">
-              <span v-if="t.result_meta.match" class="stat-match">✓ {{ t.result_meta.match }}</span>
-              <span v-if="t.result_meta.diff_a || t.result_meta.diff_b" class="stat-diff">✗ {{ (t.result_meta.diff_a || 0) + (t.result_meta.diff_b || 0) }}</span>
-              <span v-if="t.result_meta.intersect" class="stat-match">✓ {{ t.result_meta.intersect }}</span>
+            <div class="name">{{ t_item.title }}</div>
+            <div class="meta">
+              {{ formatDate(t_item.created_at) }} ·
+              {{ t_item.column_a?.length || '?' }} {{ t('history.rows') }} ·
+              {{ modeName(t_item.mode) }}
+            </div>
+            <div v-if="t_item.result_meta" class="stats">
+              <span v-if="t_item.result_meta.match" class="stat-match">✓ {{ t_item.result_meta.match }}</span>
+              <span v-if="(t_item.result_meta.diff_a || 0) + (t_item.result_meta.diff_b || 0)" class="stat-diff">✗ {{ (t_item.result_meta.diff_a || 0) + (t_item.result_meta.diff_b || 0) }}</span>
+              <span v-if="t_item.result_meta.intersect" class="stat-match">✓ {{ t_item.result_meta.intersect }}</span>
             </div>
           </router-link>
         </div>
@@ -199,6 +203,13 @@ onMounted(loadHistory)
   opacity: 0.85;
   font-size: 15px;
   margin-bottom: 20px;
+}
+.hero .actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .hero .btn-solid {
   background: white;

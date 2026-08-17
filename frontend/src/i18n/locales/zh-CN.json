@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "Diff.lab",
+    "tagline": "两列数据差异对比工具",
+    "description": "支持历史保存与团队分享",
+    "loadDemo": "加载示例"
+  },
+  "common": {
+    "back": "返回",
+    "loading": "加载中...",
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑",
+    "close": "关闭",
+    "yes": "是",
+    "no": "否",
+    "copy": "复制",
+    "copied": "已复制",
+    "export": "导出",
+    "share": "分享",
+    "minimize": "最小化",
+    "empty": "无数据"
+  },
+  "home": {
+    "newCompare": "新建对比",
+    "historyCount": "最近对比 ({count})",
+    "titlePlaceholder": "例如：2026-Q3 用户名单核验",
+    "titleLabel": "对比名称（可选，用于保存到历史）",
+    "stepImport": "导入数据",
+    "stepMode": "选择对比模式",
+    "stepResult": "对比结果",
+    "preview": "预览",
+    "previewing": "对比中...",
+    "saveToHistory": "保存到历史",
+    "saving": "保存中...",
+    "emptyHint": "👆 填写 A/B 两列数据，点击「预览」查看对比结果"
+  },
+  "input": {
+    "columnA": "A 列（每行一个值）",
+    "columnB": "B 列（每行一个值）",
+    "placeholder": "user_10234\nuser_10247\n..."
+  },
+  "modes": {
+    "find_diff": {
+      "name": "找差异",
+      "desc": "显示 A 有但 B 没有 / B 有但 A 没有 的项"
+    },
+    "vlookup": {
+      "name": "VLOOKUP",
+      "desc": "以 A 列为 key，查找 B 列是否有匹配"
+    },
+    "intersect": {
+      "name": "找交集",
+      "desc": "只显示双侧都存在的值"
+    },
+    "options": "匹配选项",
+    "ignoreCase": "忽略大小写",
+    "trim": "去空格",
+    "skipEmpty": "忽略空值"
+  },
+  "result": {
+    "total": "总计",
+    "match": "✓ 匹配",
+    "intersect": "✓ 交集",
+    "diff": "✗ 差异",
+    "fuzzy": "~ 模糊",
+    "duration": "用时",
+    "ms": "ms",
+    "status": "状态",
+    "noData": "无数据",
+    "headerA": "A 列",
+    "headerB": "B 列"
+  },
+  "status": {
+    "match": "✓ 匹配",
+    "diff_a": "仅 A",
+    "diff_b": "仅 B",
+    "intersect": "✓ 交集",
+    "match_only": "~ 模糊"
+  },
+  "summary": {
+    "total": "总记录",
+    "match": "✓ 匹配",
+    "intersect": "✓ 交集",
+    "diff": "✗ 差异"
+  },
+  "detail": {
+    "createdAt": "创建于",
+    "rowsA": "A 行",
+    "rowsB": "B 行",
+    "splitView": "双列对比",
+    "tableView": "逐行详情",
+    "legendMatch": "✓ 匹配",
+    "legendDiff": "✗ 差异",
+    "legendEmpty": "— 空值",
+    "colA": "A 列",
+    "colB": "B 列",
+    "emptyValue": "—",
+    "notFound": "任务不存在或已删除",
+    "backHome": "返回首页",
+    "shareCopied": "分享链接已复制到剪贴板",
+    "confirmDelete": "确认删除这个对比任务？",
+    "generateShare": "生成分享链接",
+    "exportCsv": "导出 CSV"
+  },
+  "share": {
+    "badge": "🔗 分享视图（只读）",
+    "invalidLink": "分享链接无效或已过期"
+  },
+  "alerts": {
+    "previewFailed": "预览失败：",
+    "saveFailed": "保存失败：",
+    "loadFailed": "加载失败：",
+    "shareFailed": "生成分享链接失败："
+  },
+  "history": {
+    "rows": "行"
+  },
+  "footer": {
+    "ready": "已对比完成",
+    "totalLabel": "总计",
+    "timeCost": "用时"
+  }
+}

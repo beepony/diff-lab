@@ -1,10 +1,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { getTask, deleteTask, createShare, exportCsvUrl } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
+
 const task = ref(null)
 const loading = ref(true)
 const shareToken = ref(null)
@@ -23,7 +26,7 @@ const load = async () => {
 }
 
 const handleDelete = async () => {
-  if (!confirm('确认删除这个对比任务？')) return
+  if (!confirm(t('detail.confirmDelete'))) return
   await deleteTask(route.params.id)
   router.push('/')
 }
@@ -37,7 +40,7 @@ const handleShare = async () => {
     copied.value = true
     setTimeout(() => (copied.value = false), 2000)
   } catch (e) {
-    alert('生成分享链接失败：' + e.message)
+    alert(t('alerts.shareFailed') + e.message)
   }
 }
 
@@ -45,23 +48,14 @@ const handleExport = () => {
   window.open(exportCsvUrl(route.params.id), '_blank')
 }
 
-const modeName = (m) => ({
-  find_diff: '找差异',
-  vlookup: 'VLOOKUP',
-  intersect: '找交集',
-}[m] || m)
+const formatDate = (iso) => new Date(iso).toLocaleString(i18nLocaleRef.value)
 
-const statusLabel = (s) => ({
-  match: '✓ 匹配',
-  diff_a: '仅 A',
-  diff_b: '仅 B',
-  intersect: '✓ 交集',
-  match_only: '~ 模糊',
-}[s] || s)
+import { getLocale } from '@/i18n'
+const i18nLocaleRef = ref(getLocale())
 
-const formatDate = (iso) => new Date(iso).toLocaleString('zh-CN')
+const stats = computed(() => task.value?.result_meta || {})
 
-// 构建双列视图：A 和 B 按行索引并排
+// 构建双列视图
 const splitView = computed(() => {
   if (!task.value) return { left: [], right: [] }
   const a = task.value.column_a
@@ -73,7 +67,6 @@ const splitView = computed(() => {
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
     const aVal = a[i] ?? null
     const bVal = b[i] ?? null
-    // 找该行的状态（按 A 列内容匹配，若 A 为空则用 B）
     let status = 'empty'
     if (aVal !== null) {
       const found = rows.find(r => r.a === aVal && (r.b === bVal || (!bVal && r.status === 'diff_a')))
@@ -88,56 +81,54 @@ const splitView = computed(() => {
   return { left, right }
 })
 
-const stats = computed(() => task.value?.result_meta || {})
-
 onMounted(load)
 </script>
 
 <template>
   <div class="page">
     <header class="topbar">
-      <router-link to="/" class="back">← 返回</router-link>
+      <router-link to="/" class="back">← {{ t('common.back') }}</router-link>
       <div class="actions">
         <button v-if="task" class="btn" @click="handleShare">
-          {{ copied ? '✓ 已复制' : '🔗 生成分享链接' }}
+          {{ copied ? '✓ ' + t('common.copied') : '🔗 ' + t('detail.generateShare') }}
         </button>
-        <button v-if="task" class="btn" @click="handleExport">📥 导出 CSV</button>
-        <button v-if="task" class="btn btn-danger" @click="handleDelete">🗑 删除</button>
+        <button v-if="task" class="btn" @click="handleExport">📥 {{ t('detail.exportCsv') }}</button>
+        <button v-if="task" class="btn btn-danger" @click="handleDelete">🗑 {{ t('common.delete') }}</button>
       </div>
     </header>
 
     <main class="wrap">
-      <div v-if="loading" class="loading">加载中...</div>
+      <div v-if="loading" class="loading">{{ t('common.loading') }}</div>
       <div v-else-if="!task" class="error">
-        <h2>任务不存在或已删除</h2>
-        <router-link to="/" class="btn btn-primary">返回首页</router-link>
+        <h2>{{ t('detail.notFound') }}</h2>
+        <router-link to="/" class="btn btn-primary">{{ t('detail.backHome') }}</router-link>
       </div>
       <template v-else>
         <header class="task-head">
           <h1>{{ task.title }}</h1>
           <div class="meta">
-            创建于 {{ formatDate(task.created_at) }} ·
-            模式 <strong>{{ modeName(task.mode) }}</strong> ·
-            A <strong>{{ task.column_a.length }}</strong> 行 / B <strong>{{ task.column_b.length }}</strong> 行
+            {{ t('detail.createdAt') }} {{ formatDate(task.created_at) }} ·
+            {{ t(`modes.${task.mode}.name`) }} ·
+            A <strong>{{ task.column_a.length }}</strong> / B <strong>{{ task.column_b.length }}</strong>
           </div>
         </header>
 
         <!-- 摘要卡片 -->
         <div class="summary">
           <div class="stat total">
-            <div class="stat-label">总记录</div>
+            <div class="stat-label">{{ t('summary.total') }}</div>
             <div class="stat-num">{{ stats.total || 0 }}</div>
           </div>
           <div v-if="stats.match" class="stat ok">
-            <div class="stat-label">✓ 匹配</div>
+            <div class="stat-label">{{ t('summary.match') }}</div>
             <div class="stat-num">{{ stats.match }}</div>
           </div>
           <div v-if="stats.intersect" class="stat ok">
-            <div class="stat-label">✓ 交集</div>
+            <div class="stat-label">{{ t('summary.intersect') }}</div>
             <div class="stat-num">{{ stats.intersect }}</div>
           </div>
           <div v-if="stats.diff_a || stats.diff_b" class="stat diff">
-            <div class="stat-label">✗ 差异</div>
+            <div class="stat-label">{{ t('summary.diff') }}</div>
             <div class="stat-num">{{ (stats.diff_a || 0) + (stats.diff_b || 0) }}</div>
           </div>
         </div>
@@ -145,16 +136,16 @@ onMounted(load)
         <!-- 双列并排视图 -->
         <section class="split-section">
           <div class="split-head">
-            <h2>双列对比</h2>
+            <h2>{{ t('detail.splitView') }}</h2>
             <div class="legend">
-              <span class="legend-item ok">✓ 匹配</span>
-              <span class="legend-item diff">✗ 差异</span>
-              <span class="legend-item empty">— 空值</span>
+              <span class="legend-item ok">{{ t('detail.legendMatch') }}</span>
+              <span class="legend-item diff">{{ t('detail.legendDiff') }}</span>
+              <span class="legend-item empty">{{ t('detail.legendEmpty') }}</span>
             </div>
           </div>
           <div class="split">
             <div class="col">
-              <div class="col-head">A 列</div>
+              <div class="col-head">{{ t('detail.colA') }}</div>
               <div class="rows">
                 <div
                   v-for="r in splitView.left"
@@ -163,12 +154,12 @@ onMounted(load)
                   :class="r.status"
                 >
                   <span class="row-num">{{ r.idx }}</span>
-                  <span class="row-val">{{ r.value ?? '—' }}</span>
+                  <span class="row-val">{{ r.value ?? t('detail.emptyValue') }}</span>
                 </div>
               </div>
             </div>
             <div class="col">
-              <div class="col-head">B 列</div>
+              <div class="col-head">{{ t('detail.colB') }}</div>
               <div class="rows">
                 <div
                   v-for="r in splitView.right"
@@ -177,33 +168,33 @@ onMounted(load)
                   :class="r.status"
                 >
                   <span class="row-num">{{ r.idx }}</span>
-                  <span class="row-val">{{ r.value ?? '—' }}</span>
+                  <span class="row-val">{{ r.value ?? t('detail.emptyValue') }}</span>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 单表格视图（备用） -->
+        <!-- 单表格视图 -->
         <section class="table-section">
-          <h2>逐行详情</h2>
+          <h2>{{ t('detail.tableView') }}</h2>
           <table>
             <thead>
               <tr>
                 <th style="width: 40px">#</th>
-                <th>A 列</th>
-                <th>B 列</th>
-                <th style="width: 100px">状态</th>
+                <th>{{ t('result.headerA') }}</th>
+                <th>{{ t('result.headerB') }}</th>
+                <th style="width: 100px">{{ t('result.status') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(row, idx) in task.diff_result.rows" :key="idx">
                 <td class="idx">{{ idx + 1 }}</td>
-                <td>{{ row.a || '—' }}</td>
-                <td>{{ row.b || '—' }}</td>
+                <td>{{ row.a || t('detail.emptyValue') }}</td>
+                <td>{{ row.b || t('detail.emptyValue') }}</td>
                 <td>
                   <span class="status-badge" :class="row.status">
-                    {{ statusLabel(row.status) }}
+                    {{ t(`status.${row.status}`) }}
                   </span>
                 </td>
               </tr>

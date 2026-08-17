@@ -1,26 +1,35 @@
 <script setup>
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+
 const props = defineProps({
   result: Object,  // { rows, summary }
 })
+
+function statusLabel(s) {
+  return t(`status.${s}`)
+}
 </script>
 
 <template>
   <div v-if="result" class="step-result">
     <div class="result-meta">
-      <span>总计 <strong>{{ result.summary.total }}</strong></span>
-      <span class="green">✓ 匹配 {{ result.summary.match }}</span>
-      <span class="orange">~ 模糊 {{ result.summary.fuzzy || 0 }}</span>
-      <span class="red">✗ 差异 {{ (result.summary.diff_a || 0) + (result.summary.diff_b || 0) }}</span>
-      <span class="meta-time">用时 {{ result.summary.duration_ms }}ms</span>
+      <span>{{ t('result.total') }} <strong>{{ result.summary.total }}</strong></span>
+      <span v-if="result.summary.match" class="green">{{ t('result.match') }} {{ result.summary.match }}</span>
+      <span v-if="result.summary.intersect" class="green">{{ t('result.intersect') }} {{ result.summary.intersect }}</span>
+      <span v-if="(result.summary.diff_a || 0) + (result.summary.diff_b || 0)" class="red">
+        {{ t('result.diff') }} {{ (result.summary.diff_a || 0) + (result.summary.diff_b || 0) }}
+      </span>
+      <span class="meta-time">{{ t('result.duration') }} {{ result.summary.duration_ms }}{{ t('result.ms') }}</span>
     </div>
 
     <table>
       <thead>
         <tr>
           <th style="width: 40px">#</th>
-          <th>A 列</th>
-          <th>B 列</th>
-          <th style="width: 120px">状态</th>
+          <th>{{ t('result.headerA') }}</th>
+          <th>{{ t('result.headerB') }}</th>
+          <th style="width: 120px">{{ t('result.status') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -35,27 +44,12 @@ const props = defineProps({
           </td>
         </tr>
         <tr v-if="!result.rows.length">
-          <td colspan="4" class="empty">无数据</td>
+          <td colspan="4" class="empty">{{ t('result.noData') }}</td>
         </tr>
       </tbody>
     </table>
   </div>
 </template>
-
-<script>
-const STATUS_MAP = {
-  match: '✓ 匹配',
-  diff_a: '仅 A',
-  diff_b: '仅 B',
-  intersect: '✓ 交集',
-  match_only: '~ 模糊',
-}
-export default {
-  methods: {
-    statusLabel(s) { return STATUS_MAP[s] || s }
-  }
-}
-</script>
 
 <style scoped>
 .result-meta {

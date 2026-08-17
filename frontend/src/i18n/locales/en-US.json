@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "Diff.lab",
+    "tagline": "Two-Column Data Diff Tool",
+    "description": "History saved & shareable with team",
+    "loadDemo": "Load Demo"
+  },
+  "common": {
+    "back": "Back",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "copy": "Copy",
+    "copied": "Copied",
+    "export": "Export",
+    "share": "Share",
+    "minimize": "Minimize",
+    "empty": "No data"
+  },
+  "home": {
+    "newCompare": "New Compare",
+    "historyCount": "Recent ({count})",
+    "titlePlaceholder": "e.g. 2026-Q3 User List Verification",
+    "titleLabel": "Title (optional, saved to history)",
+    "stepImport": "Import Data",
+    "stepMode": "Select Mode",
+    "stepResult": "Compare Result",
+    "preview": "Preview",
+    "previewing": "Comparing...",
+    "saveToHistory": "Save to History",
+    "saving": "Saving...",
+    "emptyHint": "👆 Fill in A/B columns and click \"Preview\" to see the result"
+  },
+  "input": {
+    "columnA": "Column A (one value per line)",
+    "columnB": "Column B (one value per line)",
+    "placeholder": "user_10234\nuser_10247\n..."
+  },
+  "modes": {
+    "find_diff": {
+      "name": "Find Diff",
+      "desc": "Show items that exist in A but not in B, or vice versa"
+    },
+    "vlookup": {
+      "name": "VLOOKUP",
+      "desc": "Use column A as key, find matches in column B"
+    },
+    "intersect": {
+      "name": "Intersect",
+      "desc": "Show only values that exist in both columns"
+    },
+    "options": "Match Options",
+    "ignoreCase": "Ignore case",
+    "trim": "Trim whitespace",
+    "skipEmpty": "Skip empty"
+  },
+  "result": {
+    "total": "Total",
+    "match": "✓ Match",
+    "intersect": "✓ Intersect",
+    "diff": "✗ Diff",
+    "fuzzy": "~ Fuzzy",
+    "duration": "Duration",
+    "ms": "ms",
+    "status": "Status",
+    "noData": "No data",
+    "headerA": "Column A",
+    "headerB": "Column B"
+  },
+  "status": {
+    "match": "✓ Match",
+    "diff_a": "Only A",
+    "diff_b": "Only B",
+    "intersect": "✓ Intersect",
+    "match_only": "~ Fuzzy"
+  },
+  "summary": {
+    "total": "Total",
+    "match": "✓ Match",
+    "intersect": "✓ Intersect",
+    "diff": "✗ Diff"
+  },
+  "detail": {
+    "createdAt": "Created at",
+    "rowsA": "A rows",
+    "rowsB": "B rows",
+    "splitView": "Side-by-Side Compare",
+    "tableView": "Row-by-Row Details",
+    "legendMatch": "✓ Match",
+    "legendDiff": "✗ Diff",
+    "legendEmpty": "— Empty",
+    "colA": "Column A",
+    "colB": "Column B",
+    "emptyValue": "—",
+    "notFound": "Task not found or deleted",
+    "backHome": "Back to Home",
+    "shareCopied": "Share link copied to clipboard",
+    "confirmDelete": "Confirm delete this compare task?",
+    "generateShare": "Generate Share Link",
+    "exportCsv": "Export CSV"
+  },
+  "share": {
+    "badge": "🔗 Share View (Read-only)",
+    "invalidLink": "Invalid or expired share link"
+  },
+  "alerts": {
+    "previewFailed": "Preview failed: ",
+    "saveFailed": "Save failed: ",
+    "loadFailed": "Load failed: ",
+    "shareFailed": "Generate share link failed: "
+  },
+  "history": {
+    "rows": "rows"
+  },
+  "footer": {
+    "ready": "Ready",
+    "totalLabel": "Total",
+    "timeCost": "Time"
+  }
+}

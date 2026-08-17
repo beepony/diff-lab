@@ -1,10 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import StepResult from '../components/StepResult.vue'
-import { accessByToken } from '../api'
+import { useI18n } from 'vue-i18n'
+import StepResult from '@/components/StepResult.vue'
+import { accessByToken } from '@/api'
 
 const route = useRoute()
+const { t } = useI18n()
+
 const task = ref(null)
 const loading = ref(true)
 const error = ref(null)
@@ -13,13 +16,14 @@ const load = async () => {
   try {
     task.value = await accessByToken(route.params.token)
   } catch (e) {
-    error.value = e.response?.status === 404 ? '分享链接无效或已过期' : e.message
+    error.value = e.response?.status === 404 ? t('share.invalidLink') : e.message
   } finally {
     loading.value = false
   }
 }
 
-const formatDate = (iso) => new Date(iso).toLocaleString('zh-CN')
+import { getLocale } from '@/i18n'
+const formatDate = (iso) => new Date(iso).toLocaleString(getLocale())
 
 onMounted(load)
 </script>
@@ -27,15 +31,15 @@ onMounted(load)
 <template>
   <div class="page">
     <header class="topbar">
-      <div class="badge">🔗 分享视图（只读）</div>
+      <div class="badge">{{ t('share.badge') }}</div>
     </header>
 
     <main class="wrap">
-      <div v-if="loading">加载中...</div>
+      <div v-if="loading">{{ t('common.loading') }}</div>
       <div v-else-if="error" class="error">{{ error }}</div>
       <template v-else-if="task">
         <h1>{{ task.title }}</h1>
-        <div class="meta">创建于 {{ formatDate(task.created_at) }}</div>
+        <div class="meta">{{ t('detail.createdAt') }} {{ formatDate(task.created_at) }}</div>
         <section class="result-section">
           <StepResult :result="task.diff_result" />
         </section>

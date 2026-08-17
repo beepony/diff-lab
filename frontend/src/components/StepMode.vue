@@ -1,4 +1,7 @@
 <script setup>
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+
 const props = defineProps({
   modelValue: String,
   options: Object,
@@ -6,12 +9,13 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'update:options'])
 
 const modes = [
-  { key: 'find_diff', icon: '🔍', name: '找差异', desc: '显示 A 有但 B 没有 / B 有但 A 没有 的项' },
-  { key: 'vlookup', icon: '🎯', name: 'VLOOKUP', desc: '以 A 列为 key，查找 B 列是否有匹配' },
-  { key: 'intersect', icon: '🤝', name: '找交集', desc: '只显示双侧都存在的值' },
+  { key: 'find_diff', icon: '🔍' },
+  { key: 'vlookup', icon: '🎯' },
+  { key: 'intersect', icon: '🤝' },
 ]
 
 const toggleOption = (key) => {
+  // 内部 option key 仍是英文（与后端 options schema 保持一致）
   emit('update:options', { ...props.options, [key]: !props.options[key] })
 }
 </script>
@@ -27,29 +31,29 @@ const toggleOption = (key) => {
         @click="emit('update:modelValue', m.key)"
       >
         <div class="icon">{{ m.icon }}</div>
-        <div class="name">{{ m.name }}</div>
-        <div class="desc">{{ m.desc }}</div>
+        <div class="name">{{ t(`modes.${m.key}.name`) }}</div>
+        <div class="desc">{{ t(`modes.${m.key}.desc`) }}</div>
       </div>
     </div>
 
     <div class="options">
-      <div class="options-label">匹配选项</div>
+      <div class="options-label">{{ t('modes.options') }}</div>
       <div class="toggle-list">
         <div
           class="toggle"
           :class="{ on: options.ignore_case }"
           @click="toggleOption('ignore_case')"
-        >忽略大小写</div>
+        >{{ t('modes.ignoreCase') }}</div>
         <div
           class="toggle"
           :class="{ on: options.trim }"
           @click="toggleOption('trim')"
-        >去空格</div>
+        >{{ t('modes.trim') }}</div>
         <div
           class="toggle"
           :class="{ on: options.skip_empty }"
           @click="toggleOption('skip_empty')"
-        >忽略空值</div>
+        >{{ t('modes.skipEmpty') }}</div>
       </div>
     </div>
   </div>

@@ -1,18 +1,31 @@
 <script setup>
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+
 const props = defineProps({
   modelValue: String,
-  label: String,
+  label: String,  // 可选：传入翻译 key；否则用 placeholder 推断
   placeholder: String,
 })
 const emit = defineEmits(['update:modelValue'])
+
+// 支持两种用法：
+//   <StepInput v-model="x" label="input.columnA" />
+//   <StepInput v-model="x" :label="'A 列'" />  ← 兼容：传入原文则直接显示
+const displayLabel = () => {
+  if (!props.label) return ''
+  // 如果 label 以 "input." / "home." 等开头，认为是 i18n key
+  if (props.label.includes('.')) return t(props.label)
+  return props.label
+}
 </script>
 
 <template>
   <div class="input-block">
-    <label>{{ label }}</label>
+    <label>{{ displayLabel() }}</label>
     <textarea
       :value="modelValue"
-      :placeholder="placeholder"
+      :placeholder="placeholder || t('input.placeholder')"
       @input="emit('update:modelValue', $event.target.value)"
       rows="8"
     ></textarea>
