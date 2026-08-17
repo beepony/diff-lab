@@ -1,0 +1,16 @@
+services:
+  diff-lab:
+    build: .
+    container_name: diff-lab
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      - diff-lab-data:/app/data
+    environment:
+      - DIFF_LAB_DB=/app/data/diff_lab.db
+      - TZ=Asia/Shanghai
+
+volumes:
+  diff-lab-data:
+    driver: local

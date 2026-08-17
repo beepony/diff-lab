@@ -1,0 +1,88 @@
+"""SQLAlchemy 模型 + Pydantic Schema。"""
+from datetime import datetime, timedelta
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
+import uuid
+
+from db import Base
+
+
+# ============ SQLAlchemy ORM 模型 ============
+
+class DiffTask(Base):
+    """对比任务表。"""
+    __tablename__ = "diff_tasks"
+
+    id = Column(String, primary_key=True, default=lambda: uuid.uuid4().hex[:12])
+    title = Column(String, nullable=False)
+    mode = Column(String, nullable=False)  # find_diff | vlookup | intersect
+    column_a = Column(Text, nullable=False)
+    column_b = Column(Text, nullable=False)
+    column_a_meta = Column(Text, nullable=True)  # 大数据指纹 JSON
+    column_b_meta = Column(Text, nullable=True)
+    options = Column(Text, nullable=True)  # JSON 字符串
+    result_meta = Column(Text, nullable=True)  # JSON: {match, fuzzy, diff, duration_ms}
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    expires_at = Column(DateTime, default=lambda: datetime.utcnow() + timedelta(days=90))
+
+    share_links = relationship("ShareLink", back_populates="task", cascade="all, delete-orphan")
+
+
+class ShareLink(Base):
+    """分享链接表（实现 1A 无登录分享）。"""
+    __tablename__ = "share_links"
+
+    task_id = Column(String, ForeignKey("diff_tasks.id", ondelete="CASCADE"), primary_key=True)
+    access_token = Column(String, primary_key=True, index=True)
+    permission = Column(String, default="view")  # view | edit
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    task = relationship("DiffTask", back_populates="share_links")
+
+
+# ============ Pydantic Schema（API 入参/出参） ============
+
+class DiffOptions(BaseModel):
+    """对比选项。"""
+    ignore_case: bool = False
+    trim: bool = False
+    skip_empty: bool = True
+
+
+class CreateTaskRequest(BaseModel):
+    """创建任务入参。"""
+    title: str = Field(..., min_length=1, max_length=200)
+    mode: Literal["find_diff", "vlookup", "intersect"]
+    column_a: str = Field(..., description="A 列原始文本（每行一个值）")
+    column_b: str = Field(..., description="B 列原始文本")
+    options: DiffOptions = Field(default_factory=DiffOptions)
+
+
+class TaskSummary(BaseModel):
+    """任务列表（首页历史用，不含完整数据）。"""
+    id: str
+    title: str
+    mode: str
+    result_meta: Optional[dict] = None
+    created_at: datetime
+    share_token: Optional[str] = None  # 是否已分享
+
+    class Config:
+        from_attributes = True
+
+
+class TaskDetail(BaseModel):
+    """任务详情（含完整数据和对比结果）。"""
+    id: str
+    title: str
+    mode: str
+    column_a: list[str]
+    column_b: list[str]
+    options: dict
+    result_meta: dict
+    diff_result: dict  # 实际 diff 输出
+    created_at: datetime
+    share_token: Optional[str] = None
