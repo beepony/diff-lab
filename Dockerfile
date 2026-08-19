@@ -13,10 +13,6 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-# 系统依赖
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
 # 后端依赖
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt

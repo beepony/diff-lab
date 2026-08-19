@@ -2,11 +2,15 @@
 from datetime import datetime, timedelta
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, Literal
 import uuid
 
 from db import Base
+
+
+MAX_COLUMN_LINES = 1000
+MAX_COLUMN_CHARS = 100_000
 
 
 # ============ SQLAlchemy ORM 模型 ============
@@ -26,7 +30,7 @@ class DiffTask(Base):
     result_meta = Column(Text, nullable=True)  # JSON: {match, fuzzy, diff, duration_ms}
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    expires_at = Column(DateTime, default=lambda: datetime.utcnow() + timedelta(days=90))
+    expires_at = Column(DateTime, nullable=False, default=lambda: datetime.utcnow() + timedelta(days=90))
 
     share_links = relationship("ShareLink", back_populates="task", cascade="all, delete-orphan")
 
@@ -56,9 +60,24 @@ class CreateTaskRequest(BaseModel):
     """创建任务入参。"""
     title: str = Field(..., min_length=1, max_length=200)
     mode: Literal["find_diff", "vlookup", "intersect"]
-    column_a: str = Field(..., description="A 列原始文本（每行一个值）")
-    column_b: str = Field(..., description="B 列原始文本")
+    column_a: str = Field(..., max_length=MAX_COLUMN_CHARS, description="A 列原始文本（每行一个值）")
+    column_b: str = Field(..., max_length=MAX_COLUMN_CHARS, description="B 列原始文本")
     options: DiffOptions = Field(default_factory=DiffOptions)
+
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("title must contain non-whitespace characters")
+        return value
+
+    @field_validator("column_a", "column_b")
+    @classmethod
+    def enforce_column_line_limit(cls, value: str) -> str:
+        if len(value.splitlines()) > MAX_COLUMN_LINES:
+            raise ValueError(f"column must contain at most {MAX_COLUMN_LINES} lines")
+        return value
 
 
 class TaskSummary(BaseModel):
@@ -70,8 +89,7 @@ class TaskSummary(BaseModel):
     created_at: datetime
     share_token: Optional[str] = None  # 是否已分享
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TaskDetail(BaseModel):

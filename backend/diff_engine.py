@@ -6,7 +6,7 @@
 }
 """
 import time
-from typing import Literal
+from collections import defaultdict, deque
 
 
 def normalize(value: str, options: dict) -> str | None:
@@ -53,7 +53,7 @@ def diff(text_a: str, text_b: str, mode: str, options: dict) -> dict:
     set_b_norm = {n for _, _, n in filtered_b}
 
     if mode == "find_diff":
-        rows, summary = _find_diff(filtered_a, filtered_b, set_a_norm, set_b_norm)
+        rows, summary = _find_diff(filtered_a, filtered_b)
     elif mode == "vlookup":
         rows, summary = _vlookup(filtered_a, filtered_b, set_b_norm)
     elif mode == "intersect":
@@ -65,25 +65,27 @@ def diff(text_a: str, text_b: str, mode: str, options: dict) -> dict:
     return {"rows": rows, "summary": summary}
 
 
-def _find_diff(filtered_a, filtered_b, set_a_norm, set_b_norm):
-    """找差异：A 有 B 没有 / B 有 A 没有 / 共同。"""
+def _find_diff(filtered_a, filtered_b):
+    """找差异：按出现次数匹配，保留两列各自的输入顺序。"""
     rows = []
     summary = {"match": 0, "diff_a": 0, "diff_b": 0, "intersect": 0, "total": 0}
 
-    # A 列：标记状态
-    seen_a = set()
-    for orig_idx, raw, norm in filtered_a:
-        if norm in set_b_norm and norm not in seen_a:
-            rows.append({"a": raw, "b": _find_first_match(norm, filtered_b), "status": "match"})
+    remaining_b = defaultdict(deque)
+    for _, raw, norm in filtered_b:
+        remaining_b[norm].append(raw)
+
+    for _, raw, norm in filtered_a:
+        if remaining_b[norm]:
+            rows.append({"a": raw, "b": remaining_b[norm].popleft(), "status": "match"})
             summary["match"] += 1
-            seen_a.add(norm)
         else:
             rows.append({"a": raw, "b": None, "status": "diff_a"})
             summary["diff_a"] += 1
 
-    # B 列独有的
-    for orig_idx, raw, norm in filtered_b:
-        if norm not in set_a_norm:
+    # B 列中未被消耗的值保持 B 的输入顺序。
+    for _, raw, norm in filtered_b:
+        if remaining_b[norm] and remaining_b[norm][0] == raw:
+            remaining_b[norm].popleft()
             rows.append({"a": None, "b": raw, "status": "diff_b"})
             summary["diff_b"] += 1
 
@@ -97,8 +99,9 @@ def _vlookup(filtered_a, filtered_b, set_b_norm):
     summary = {"match": 0, "diff_a": 0, "diff_b": 0, "intersect": 0, "total": 0}
 
     for orig_idx, raw, norm in filtered_a:
-        b_match = _find_first_match(norm, filtered_b) if norm in set_b_norm else None
-        status = "match" if b_match else "diff_a"
+        is_match = norm in set_b_norm
+        b_match = _find_first_match(norm, filtered_b) if is_match else None
+        status = "match" if is_match else "diff_a"
         rows.append({"a": raw, "b": b_match, "status": status})
         summary[status] += 1
 
@@ -107,16 +110,20 @@ def _vlookup(filtered_a, filtered_b, set_b_norm):
 
 
 def _intersect(filtered_a, filtered_b, set_a_norm, set_b_norm):
-    """找交集：只显示双侧都有的（去重后）。"""
+    """找交集：去重后按 A 列首次出现顺序输出。"""
     rows = []
     summary = {"match": 0, "diff_a": 0, "diff_b": 0, "intersect": 0, "total": 0}
-    common = set_a_norm & set_b_norm
+    first_a = {}
+    first_b = {}
+    for _, raw, norm in filtered_a:
+        first_a.setdefault(norm, raw)
+    for _, raw, norm in filtered_b:
+        first_b.setdefault(norm, raw)
 
-    for norm in common:
-        a_raw = next((r for _, r, n in filtered_a if n == norm), None)
-        b_raw = next((r for _, r, n in filtered_b if n == norm), None)
-        rows.append({"a": a_raw, "b": b_raw, "status": "intersect"})
-        summary["intersect"] += 1
+    for norm, a_raw in first_a.items():
+        if norm in first_b:
+            rows.append({"a": a_raw, "b": first_b[norm], "status": "intersect"})
+            summary["intersect"] += 1
 
     summary["total"] = len(rows)
     return rows, summary

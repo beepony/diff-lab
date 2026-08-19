@@ -54,6 +54,7 @@ import { getLocale } from '@/i18n'
 const i18nLocaleRef = ref(getLocale())
 
 const stats = computed(() => task.value?.result_meta || {})
+const displayValue = (value) => value === null || value === undefined ? t('detail.emptyValue') : value
 
 // 构建双列视图
 const splitView = computed(() => {
@@ -69,7 +70,7 @@ const splitView = computed(() => {
     const bVal = b[i] ?? null
     let status = 'empty'
     if (aVal !== null) {
-      const found = rows.find(r => r.a === aVal && (r.b === bVal || (!bVal && r.status === 'diff_a')))
+      const found = rows.find(r => r.a === aVal && (r.b === bVal || (bVal === null && r.status === 'diff_a')))
       status = found?.status || 'empty'
     } else if (bVal !== null) {
       const found = rows.find(r => r.b === bVal && r.status === 'diff_b')
@@ -190,8 +191,8 @@ onMounted(load)
             <tbody>
               <tr v-for="(row, idx) in task.diff_result.rows" :key="idx">
                 <td class="idx">{{ idx + 1 }}</td>
-                <td>{{ row.a || t('detail.emptyValue') }}</td>
-                <td>{{ row.b || t('detail.emptyValue') }}</td>
+                <td>{{ displayValue(row.a) }}</td>
+                <td>{{ displayValue(row.b) }}</td>
                 <td>
                   <span class="status-badge" :class="row.status">
                     {{ t(`status.${row.status}`) }}

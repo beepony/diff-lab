@@ -1,6 +1,7 @@
 """FastAPI 入口：自动建表 + 挂载路由 + 静态前端（Docker 部署时）。"""
+from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -8,10 +9,18 @@ from fastapi.responses import FileResponse
 from db import init_db
 from routers import tasks, share
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    init_db()
+    yield
+
+
 app = FastAPI(
     title="Diff.lab",
     description="两列数据差异对比工具",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # CORS：开发期允许 Vue dev server 跨域调用
@@ -22,11 +31,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 启动时建表
-@app.on_event("startup")
-def startup():
-    init_db()
 
 # 路由（API 在前）
 app.include_router(tasks.router)

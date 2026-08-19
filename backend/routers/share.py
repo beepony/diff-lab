@@ -1,4 +1,5 @@
 """Share 路由：通过 token 访问任务。"""
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -18,7 +19,7 @@ def access_by_token(token: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Invalid share token")
 
     task = db.query(DiffTask).filter_by(id=link.task_id).first()
-    if not task:
+    if not task or (task.expires_at and task.expires_at <= datetime.utcnow()):
         raise HTTPException(status_code=404, detail="Task not found")
 
     options = json.loads(task.options) if task.options else {}

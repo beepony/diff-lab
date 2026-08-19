@@ -9,6 +9,10 @@ const props = defineProps({
 function statusLabel(s) {
   return t(`status.${s}`)
 }
+
+function displayValue(value) {
+  return value === null || value === undefined ? '—' : value
+}
 </script>
 
 <template>
@@ -35,8 +39,8 @@ function statusLabel(s) {
       <tbody>
         <tr v-for="(row, idx) in result.rows" :key="idx">
           <td class="idx">{{ idx + 1 }}</td>
-          <td>{{ row.a || '—' }}</td>
-          <td>{{ row.b || '—' }}</td>
+          <td>{{ displayValue(row.a) }}</td>
+          <td>{{ displayValue(row.b) }}</td>
           <td>
             <span class="status-badge" :class="row.status">
               {{ statusLabel(row.status) }}

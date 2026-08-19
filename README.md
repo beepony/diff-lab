@@ -21,7 +21,7 @@
 - **3 种匹配选项** · 忽略大小写 / 去空格 / 忽略空值
 - **中英双语** · 自动检测浏览器语言，Hero 右上角一键切换，localStorage 持久化偏好
 - **历史保存** · 自动持久化，90 天保留
-- **分享链接** · 一键生成 8 位 token，无需登录
+- **分享链接** · 一键生成高熵 token，无需登录（随任务在 90 天后失效）
 - **CSV 导出** · 流式下载，中文友好
 - **单镜像部署** · Docker 多阶段构建，前端嵌入后端
 
@@ -130,7 +130,7 @@ diff-lab/
 | `GET` | `/api/tasks` | 列出所有任务 |
 | `GET` | `/api/tasks/{id}` | 获取任务详情 |
 | `DELETE` | `/api/tasks/{id}` | 删除任务 |
-| `POST` | `/api/tasks/{id}/share` | 生成分享链接（8 位 token） |
+| `POST` | `/api/tasks/{id}/share` | 生成分享链接（高熵 token） |
 | `GET` | `/api/share/{token}` | 通过分享链接访问（只读） |
 | `GET` | `/api/tasks/{id}/export` | 导出 CSV |
 | `POST` | `/api/preview` | 实时预览（不存 DB） |
@@ -181,8 +181,9 @@ def diff(text_a, text_b, mode, options):
 
 ### ⚠️ 已知约束
 
-- **数据规模** · 单次对比 ≤ 1000 行（性能兜底）
-- **历史保留期** · 90 天自动过期（`expires_at` 字段）
+- **数据规模** · 单列最多 1000 行、100,000 字符（服务端校验）
+- **重复值语义** · 找差异按出现次数匹配；VLOOKUP 对 A 的每一行查询 B 的首个匹配；交集去重并按 A 首次出现顺序展示
+- **历史保留期** · 90 天自动过期；启动时清理，过期任务不可访问、分享或导出
 - **分享权限** · 无鉴权，拿到链接即可访问（内部工具设计）
 - **SQLite 并发** · 不支持高并发写入（单进程内部工具够用）
 
@@ -201,7 +202,7 @@ MIT — 详见 [LICENSE](LICENSE)
 - **3 match options** · Ignore case / Trim whitespace / Skip empty
 - **Bilingual UI** · Auto-detect browser language, one-click switch (top-right), localStorage persistence
 - **History** · Auto-saved, 90-day retention
-- **Share links** · Generate 8-char tokens, no login required
+- **Share links** · Generate high-entropy tokens, no login required (expire with the task after 90 days)
 - **CSV export** · Streaming download, UTF-8 friendly
 - **Single-image deploy** · Docker multi-stage build
 
@@ -264,7 +265,7 @@ Open http://localhost:5173
 | `GET` | `/api/tasks` | List all tasks |
 | `GET` | `/api/tasks/{id}` | Get task detail |
 | `DELETE` | `/api/tasks/{id}` | Delete task |
-| `POST` | `/api/tasks/{id}/share` | Generate share link (8-char token) |
+| `POST` | `/api/tasks/{id}/share` | Generate share link (high-entropy token) |
 | `GET` | `/api/share/{token}` | Access via share token (read-only) |
 | `GET` | `/api/tasks/{id}/export` | Export CSV |
 | `POST` | `/api/preview` | Live preview (no DB write) |
@@ -273,8 +274,9 @@ Full OpenAPI docs: visit `/docs` after launch.
 
 ### ⚠️ Constraints
 
-- **Data scale** · ≤ 1000 rows per compare (performance cap)
-- **History retention** · 90 days auto-expire
+- **Data scale** · Each column is limited to 1,000 rows and 100,000 characters (server-enforced)
+- **Duplicate policy** · Find Diff matches occurrences; VLOOKUP queries the first B match for each A row; Intersect is deduplicated in A's first-seen order
+- **History retention** · 90 days; expired tasks are cleaned at startup and cannot be accessed, shared, or exported
 - **Share auth** · No auth required (internal-tool design)
 - **SQLite concurrency** · Single-process, not for high-write workloads
 

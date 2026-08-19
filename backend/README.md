@@ -30,6 +30,13 @@ uvicorn main:app --host 127.0.0.1 --port 8001 --reload
 
 ## 🧪 测试
 
+安装开发依赖并运行自动化测试：
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
 ```bash
 # 健康检查
 curl http://127.0.0.1:8001/health
@@ -50,7 +57,8 @@ curl -X POST http://127.0.0.1:8001/api/tasks \
 
 - SQLite 单文件：`backend/diff_lab.db`（自动创建）
 - 表结构：`diff_tasks` + `share_links`
-- 数据保留期：90 天（`expires_at` 字段）
+- 数据保留期：90 天；启动时会清理过期记录，接口也不会返回或导出过期任务
+- 单列限制：最多 1000 行、100,000 个字符
 
 ## 📁 项目结构
 
