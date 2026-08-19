@@ -1,12 +1,13 @@
 # Diff.lab · 两列数据差异对比工具
 
 > 像 VLOOKUP 一样好用，但更快、更直观、支持团队分享。
-> Vue 3 + FastAPI + SQLite · 1000 行数据毫秒级对比 · 单镜像 Docker 部署 · 中英双语
+> Vue 3 + FastAPI + SQLite · 1000 行数据毫秒级对比 · 迁移可控 · 可选管理员保护 · 中英双语
 
 ![status](https://img.shields.io/badge/status-ready-success)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![i18n](https://img.shields.io/badge/i18n-zh--CN%20%7C%20en--US-blue)
 ![docker](https://img.shields.io/badge/docker-ready-blue)
+![tests](https://img.shields.io/badge/tests-11%20passed-success)
 
 [English](#english) · [简体中文](#简体中文)
 
@@ -22,20 +23,27 @@
 - **中英双语** · 自动检测浏览器语言，Hero 右上角一键切换，localStorage 持久化偏好
 - **历史保存** · 自动持久化，90 天保留
 - **分享链接** · 一键生成高熵 token，无需登录（默认 7 天、最长不超过任务 90 天保留期，可撤销）
-- **CSV 导出** · 流式下载，中文友好
-- **单镜像部署** · Docker 多阶段构建，前端嵌入后端
+- **安全导出** · CSV 流式下载、UTF-8 BOM 与公式注入防护
+- **访问控制** · 可选管理员 token；浏览器会话内配置，保护任务管理接口
+- **可靠 SQLite** · WAL、外键、busy timeout、过期清理与健康检查
+- **可演进数据结构** · Alembic 自动升级数据库 schema
+- **可验证** · 后端 API / 迁移 / 安全边界自动化测试
 
 ### 🚀 快速启动
 
 **方式 1 · Docker 单镜像（推荐）**
 
 ```bash
+# 公网部署建议设置管理员令牌；本地个人使用可省略。
+export DIFF_LAB_ADMIN_TOKEN="$(openssl rand -hex 32)"
 docker-compose up -d --build
 ```
 
 打开 http://localhost:8001
 
 数据持久化在 Docker volume `diff-lab-data`（SQLite 文件）。
+
+设置令牌后，通过页面右下角“配置管理员令牌”输入；令牌只保存在当前浏览器会话。详细部署说明见 [docs/DEPLOY.md](docs/DEPLOY.md)。
 
 **方式 2 · 本地开发（前后端分离）**
 
@@ -55,6 +63,14 @@ npm run dev
 ```
 
 打开 http://localhost:5173
+
+运行后端测试：
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest
+```
 
 ### 🌍 多语言支持
 
@@ -82,12 +98,15 @@ npm run dev
 diff-lab/
 ├── backend/                    # FastAPI 后端
 │   ├── main.py                 # 入口 + 静态前端挂载 + SPA 兜底
-│   ├── db.py                   # SQLite 连接（支持 DIFF_LAB_DB 环境变量）
+│   ├── auth.py                 # 可选管理员 token 校验
+│   ├── db.py                   # SQLite 连接、连接 PRAGMA 与迁移入口
 │   ├── models.py               # ORM 模型 + Pydantic Schema
 │   ├── diff_engine.py          # 核心对比算法（3 模式 + 标准化）
+│   ├── alembic/                # 可版本化数据库迁移
 │   ├── routers/
-│   │   ├── tasks.py            # CRUD + 预览 + 分享 + 导出 CSV
+│   │   ├── tasks.py            # 受保护 CRUD + 预览 + 分享管理 + 导出
 │   │   └── share.py            # 通过 token 访问
+│   ├── tests/                  # 算法、API、迁移与安全测试
 │   ├── requirements.txt
 │   ├── start.sh
 │   └── README.md
@@ -99,14 +118,15 @@ diff-lab/
 │   │   │   └── ShareView.vue   # 分享视图（只读）
 │   │   ├── components/
 │   │   │   ├── LanguageSwitcher.vue  # 语言切换器
+│   │   │   ├── AdminAccess.vue       # 会话级管理员令牌配置
 │   │   │   ├── StepImport.vue        # 双列输入
 │   │   │   ├── StepMode.vue          # 模式选择
 │   │   │   └── StepResult.vue        # 结果表格
 │   │   ├── i18n/
 │   │   │   ├── index.js              # vue-i18n 配置 + 自动探测
 │   │   │   └── locales/
-│   │   │       ├── zh-CN.json        # 简体中文（76 keys）
-│   │   │       └── en-US.json        # English（76 keys）
+│   │   │       ├── zh-CN.json        # 简体中文
+│   │   │       └── en-US.json        # English
 │   │   ├── router.js
 │   │   ├── api.js
 │   │   ├── App.vue
@@ -124,26 +144,47 @@ diff-lab/
 
 ### 🔌 API 接口
 
-| 方法 | 路径 | 用途 |
-|---|---|---|
-| `POST` | `/api/tasks` | 创建对比任务 |
-| `GET` | `/api/tasks` | 列出所有任务 |
-| `GET` | `/api/tasks/{id}` | 获取任务详情 |
-| `DELETE` | `/api/tasks/{id}` | 删除任务 |
-| `POST` | `/api/tasks/{id}/share` | 生成分享链接（高熵 token） |
-| `GET` | `/api/tasks/{id}/share` | 查询当前分享链接（管理员） |
-| `DELETE` | `/api/tasks/{id}/share` | 撤销当前分享链接（管理员） |
-| `GET` | `/api/share/{token}` | 通过分享链接访问（只读） |
-| `GET` | `/api/tasks/{id}/export` | 导出 CSV |
-| `POST` | `/api/preview` | 实时预览（不存 DB） |
+| 方法 | 路径 | 用途 | 管理员 token* |
+|---|---|---|---|
+| `POST` | `/api/tasks` | 创建对比任务 | 是 |
+| `GET` | `/api/tasks` | 列出历史 | 是 |
+| `GET` | `/api/tasks/{id}` | 获取任务详情 | 是 |
+| `DELETE` | `/api/tasks/{id}` | 删除任务 | 是 |
+| `GET` | `/api/tasks/{id}/export` | 导出 CSV | 是 |
+| `GET` | `/api/tasks/{id}/share` | 查询当前分享链接 | 是 |
+| `POST` | `/api/tasks/{id}/share` | 创建或获取有效分享链接 | 是 |
+| `DELETE` | `/api/tasks/{id}/share` | 撤销当前分享链接 | 是 |
+| `GET` | `/api/share/{token}` | 通过分享链接只读访问 | 否 |
+| `POST` | `/api/preview` | 实时预览（不持久化） | 否 |
 
 完整 OpenAPI 文档：启动后访问 `/docs`
 
-### 🧪 快速测试
+\* 仅在设置 `DIFF_LAB_ADMIN_TOKEN` 后启用。支持 `Authorization: Bearer <token>` 或 `X-Admin-Token: <token>`。
+
+### 🔐 安全与运维
+
+- **管理员 token** · 公网部署必须设置 `DIFF_LAB_ADMIN_TOKEN`；前端令牌仅保存在 `sessionStorage`，不会写入构建产物或 localStorage。
+- **分享链接** · 默认为 7 天有效，可设为 1–90 天，且最长不超过任务的 90 天保留期；管理员可随时撤销。
+- **输入与导出** · 每列最多 1000 行、100,000 字符；CSV 对公式前缀进行转义，避免在表格软件中执行用户输入。
+- **请求可追踪** · API 返回 `X-Request-ID`，错误体也包含请求 ID；`/health` 会检查数据库连通性。
+- **数据库** · 启动时自动执行 Alembic 迁移与过期数据清理；SQLite 启用 WAL、外键和 busy timeout。
+
+### 🧪 验证
+
+自动化测试覆盖核心算法、输入限制、CSV 防护、任务/分享过期、管理员授权、请求 ID 与迁移状态：
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest
+```
+
+快速 API 测试：
 
 ```bash
 curl -X POST http://localhost:8001/api/tasks \
   -H "Content-Type: application/json" \
+  -H "X-Admin-Token: $DIFF_LAB_ADMIN_TOKEN" \
   -d '{
     "title": "测试",
     "mode": "find_diff",
@@ -186,9 +227,9 @@ def diff(text_a, text_b, mode, options):
 - **数据规模** · 单列最多 1000 行、100,000 字符（服务端校验）
 - **重复值语义** · 找差异按出现次数匹配；VLOOKUP 对 A 的每一行查询 B 的首个匹配；交集去重并按 A 首次出现顺序展示
 - **历史保留期** · 90 天自动过期；启动时清理，过期任务不可访问、分享或导出
-- **分享权限** · 无鉴权，拿到链接即可访问（内部工具设计）
-- **管理员权限（可选）** · 设置 `DIFF_LAB_ADMIN_TOKEN` 后，任务管理接口需提供管理员 token；分享链接仍为只读、独立过期且可撤销
-- **SQLite 并发** · 不支持高并发写入（单进程内部工具够用）
+- **分享权限** · 分享链接是无登录的只读能力链接；持有者可在有效期内读取完整任务数据
+- **管理员权限** · 不设置 `DIFF_LAB_ADMIN_TOKEN` 时保持本地开发兼容；公网环境应始终设置
+- **SQLite 并发** · WAL 改善读写共存，但仍适合单实例、低到中等写入量，不适合高并发写入
 
 ### 📝 License
 
@@ -206,20 +247,26 @@ MIT — 详见 [LICENSE](LICENSE)
 - **Bilingual UI** · Auto-detect browser language, one-click switch (top-right), localStorage persistence
 - **History** · Auto-saved, 90-day retention
 - **Share links** · Generate high-entropy tokens, no login required (7 days by default, capped by the task's 90-day retention, and revocable)
-- **CSV export** · Streaming download, UTF-8 friendly
-- **Single-image deploy** · Docker multi-stage build
+- **Safe export** · Streaming CSV with UTF-8 BOM and spreadsheet-formula injection protection
+- **Access control** · Optional admin token protects task-management endpoints
+- **Reliable SQLite** · WAL, foreign keys, busy timeout, expiry cleanup, and health checks
+- **Schema migrations** · Alembic automatically upgrades the database schema at startup
+- **Tested** · Automated coverage for API, migrations, security boundaries, and diff behavior
 
 ### 🚀 Quick Start
 
 **Option 1 · Docker (recommended)**
 
 ```bash
+export DIFF_LAB_ADMIN_TOKEN="$(openssl rand -hex 32)"
 docker-compose up -d --build
 ```
 
 Open http://localhost:8001
 
 Data persisted in Docker volume `diff-lab-data` (SQLite file).
+
+When configured, enter the token through **Configure admin token** at the bottom-right of the UI. It is stored only in the current browser session. See [docs/DEPLOY.md](docs/DEPLOY.md) for production guidance.
 
 **Option 2 · Local development**
 
@@ -239,6 +286,14 @@ npm run dev
 ```
 
 Open http://localhost:5173
+
+Run backend tests:
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest
+```
 
 ### 🌍 i18n
 
@@ -262,29 +317,39 @@ Open http://localhost:5173
 
 ### 🔌 API
 
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/api/tasks` | Create compare task |
-| `GET` | `/api/tasks` | List all tasks |
-| `GET` | `/api/tasks/{id}` | Get task detail |
-| `DELETE` | `/api/tasks/{id}` | Delete task |
-| `POST` | `/api/tasks/{id}/share` | Generate share link (high-entropy token) |
-| `GET` | `/api/tasks/{id}/share` | Get active share link (admin) |
-| `DELETE` | `/api/tasks/{id}/share` | Revoke active share link (admin) |
-| `GET` | `/api/share/{token}` | Access via share token (read-only) |
-| `GET` | `/api/tasks/{id}/export` | Export CSV |
-| `POST` | `/api/preview` | Live preview (no DB write) |
+| Method | Path | Purpose | Admin token* |
+|---|---|---|---|
+| `POST` | `/api/tasks` | Create compare task | Yes |
+| `GET` | `/api/tasks` | List history | Yes |
+| `GET` | `/api/tasks/{id}` | Get task detail | Yes |
+| `DELETE` | `/api/tasks/{id}` | Delete task | Yes |
+| `GET` | `/api/tasks/{id}/export` | Export CSV | Yes |
+| `GET` | `/api/tasks/{id}/share` | Get active share link | Yes |
+| `POST` | `/api/tasks/{id}/share` | Create or get the active share link | Yes |
+| `DELETE` | `/api/tasks/{id}/share` | Revoke active share link | Yes |
+| `GET` | `/api/share/{token}` | Read-only access via share token | No |
+| `POST` | `/api/preview` | Live preview (no DB write) | No |
 
 Full OpenAPI docs: visit `/docs` after launch.
+
+\* Enabled only when `DIFF_LAB_ADMIN_TOKEN` is set. Send either `Authorization: Bearer <token>` or `X-Admin-Token: <token>`.
+
+### 🔐 Security & Operations
+
+- **Admin token** · Set `DIFF_LAB_ADMIN_TOKEN` for every public deployment. The UI stores it only in `sessionStorage`, never in the build output or localStorage.
+- **Share links** · Valid for seven days by default; configurable from 1 to 90 days, capped by the parent task's 90-day retention, and revocable by an admin.
+- **Input & export** · Each column is capped at 1,000 rows and 100,000 characters. Formula-prefixed CSV cells are escaped before export.
+- **Traceability** · API responses include `X-Request-ID`, error bodies include the same request ID, and `/health` verifies database connectivity.
+- **Database** · Startup runs Alembic migrations and removes expired records. SQLite uses WAL, foreign keys, and a busy timeout.
 
 ### ⚠️ Constraints
 
 - **Data scale** · Each column is limited to 1,000 rows and 100,000 characters (server-enforced)
 - **Duplicate policy** · Find Diff matches occurrences; VLOOKUP queries the first B match for each A row; Intersect is deduplicated in A's first-seen order
 - **History retention** · 90 days; expired tasks are cleaned at startup and cannot be accessed, shared, or exported
-- **Share auth** · No auth required (internal-tool design)
-- **Optional admin access** · Set `DIFF_LAB_ADMIN_TOKEN` to require an admin token for task-management endpoints; share links remain read-only, independently expiring, and revocable
-- **SQLite concurrency** · Single-process, not for high-write workloads
+- **Share access** · A share link is an unauthenticated read-only capability; anyone with it can read the full task during its validity period
+- **Admin access** · Local development remains compatible when `DIFF_LAB_ADMIN_TOKEN` is unset; always set it in public environments
+- **SQLite concurrency** · WAL improves read/write coexistence, but this remains a single-instance, low-to-moderate write workload design
 
 ### 📝 License
 
