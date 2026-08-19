@@ -59,6 +59,7 @@ curl -X POST http://127.0.0.1:8001/api/tasks \
 - 表结构：`diff_tasks` + `share_links`
 - 数据保留期：90 天；启动时会清理过期记录，接口也不会返回或导出过期任务
 - 单列限制：最多 1000 行、100,000 个字符
+- Schema 由 Alembic 在应用启动时升级；迁移文件位于 `alembic/versions/`
 
 ## 📁 项目结构
 

@@ -1,13 +1,23 @@
 """FastAPI 入口：自动建表 + 挂载路由 + 静态前端（Docker 部署时）。"""
 from contextlib import asynccontextmanager
+import logging
+import os
 from pathlib import Path
-from fastapi import FastAPI
+import time
+import uuid
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
-from db import init_db
+from db import engine, init_db
 from routers import tasks, share
+
+logger = logging.getLogger("diff_lab")
+logger.setLevel(os.environ.get("DIFF_LAB_LOG_LEVEL", "INFO"))
 
 
 @asynccontextmanager
@@ -22,6 +32,56 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+def _request_id(request: Request) -> str:
+    return getattr(request.state, "request_id", "unknown")
+
+
+def _error_response(status_code: int, code: str, message: str, request: Request) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "detail": message,
+            "error": {"code": code, "message": message, "request_id": _request_id(request)},
+        },
+    )
+
+
+@app.middleware("http")
+async def request_context_and_logging(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+    request.state.request_id = request_id
+    started_at = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("request_failed request_id=%s method=%s path=%s", request_id, request.method, request.url.path)
+        response = _error_response(500, "INTERNAL_ERROR", "Internal server error", request)
+
+    duration_ms = (time.perf_counter() - started_at) * 1000
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "request_complete request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
+        request_id,
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+    )
+    return response
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    message = exc.detail if isinstance(exc.detail, str) else "Request failed"
+    return _error_response(exc.status_code, "HTTP_ERROR", message, request)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.info("request_validation_failed request_id=%s errors=%s", _request_id(request), exc.errors())
+    return _error_response(422, "VALIDATION_ERROR", "Invalid request", request)
 
 # CORS：开发期允许 Vue dev server 跨域调用
 app.add_middleware(
@@ -39,7 +99,13 @@ app.include_router(share.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        logger.exception("healthcheck_database_failed")
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+    return {"status": "ok", "database": "ok"}
 
 
 @app.get("/api-info")

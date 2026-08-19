@@ -24,6 +24,20 @@ def test_create_task_trims_title_and_enforces_limit(client):
 
     invalid_limit = client.get("/api/tasks?limit=0")
     assert invalid_limit.status_code == 422
+    assert invalid_limit.headers["X-Request-ID"]
+    assert invalid_limit.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_not_found_response_preserves_request_id_and_error_shape(client):
+    response = client.get("/api/tasks/missing", headers={"X-Request-ID": "trace-123"})
+
+    assert response.status_code == 404
+    assert response.headers["X-Request-ID"] == "trace-123"
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Task not found",
+        "request_id": "trace-123",
+    }
 
 
 def test_expired_task_is_hidden_from_task_and_share_endpoints(client):

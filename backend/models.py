@@ -1,6 +1,6 @@
 """SQLAlchemy 模型 + Pydantic Schema。"""
 from datetime import datetime, timedelta
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, Literal
@@ -34,13 +34,17 @@ class DiffTask(Base):
 
     share_links = relationship("ShareLink", back_populates="task", cascade="all, delete-orphan")
 
+    __table_args__ = (
+        Index("ix_diff_tasks_expires_created", "expires_at", "created_at"),
+    )
+
 
 class ShareLink(Base):
     """分享链接表（实现 1A 无登录分享）。"""
     __tablename__ = "share_links"
 
     task_id = Column(String, ForeignKey("diff_tasks.id", ondelete="CASCADE"), primary_key=True)
-    access_token = Column(String, primary_key=True, index=True)
+    access_token = Column(String, primary_key=True, unique=True, index=True)
     permission = Column(String, default="view")  # view | edit
     created_at = Column(DateTime, default=datetime.utcnow)
 

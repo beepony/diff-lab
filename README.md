@@ -72,7 +72,7 @@ npm run dev
 | 层 | 选型 |
 |---|---|
 | 前端 | Vue 3 + Vite 5 + vue-router 4 + axios + **vue-i18n 10** |
-| 后端 | Python 3.11 + FastAPI + SQLAlchemy |
+| 后端 | Python 3.11 + FastAPI + SQLAlchemy + Alembic |
 | 数据库 | SQLite（单文件，零运维） |
 | 部署 | Docker 多阶段构建（前端静态嵌入 Python 镜像） |
 
@@ -253,7 +253,7 @@ Open http://localhost:5173
 | Layer | Choice |
 |---|---|
 | Frontend | Vue 3 + Vite 5 + vue-router 4 + axios + **vue-i18n 10** |
-| Backend | Python 3.11 + FastAPI + SQLAlchemy |
+| Backend | Python 3.11 + FastAPI + SQLAlchemy + Alembic |
 | Database | SQLite (single file, zero ops) |
 | Deploy | Docker multi-stage build (static frontend embedded in Python image) |
 
