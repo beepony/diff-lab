@@ -103,6 +103,10 @@
     "shareCopied": "Share link copied to clipboard",
     "confirmDelete": "Confirm delete this compare task?",
     "generateShare": "Generate Share Link",
+    "revokeShare": "Revoke Share",
+    "confirmRevokeShare": "Revoke the current share link?",
+    "shareExpiryDays": "Valid days",
+    "shareExpiresAt": "Share link expires:",
     "exportCsv": "Export CSV"
   },
   "share": {
@@ -113,7 +117,15 @@
     "previewFailed": "Preview failed: ",
     "saveFailed": "Save failed: ",
     "loadFailed": "Load failed: ",
-    "shareFailed": "Generate share link failed: "
+    "shareFailed": "Generate share link failed: ",
+    "exportFailed": "Export failed: "
+  },
+  "auth": {
+    "configure": "Configure admin token",
+    "configured": "Admin token configured",
+    "adminToken": "Admin token",
+    "tokenHint": "Stored only for this browser session",
+    "clearToken": "Clear token"
   },
   "history": {
     "rows": "rows"

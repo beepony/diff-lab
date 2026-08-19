@@ -50,6 +50,7 @@ def upgrade() -> None:
             sa.Column("access_token", sa.String(), nullable=False),
             sa.Column("permission", sa.String(), nullable=True),
             sa.Column("created_at", sa.DateTime(), nullable=True),
+            sa.Column("expires_at", sa.DateTime(), nullable=False),
             sa.ForeignKeyConstraint(["task_id"], ["diff_tasks.id"], ondelete="CASCADE"),
             sa.PrimaryKeyConstraint("task_id", "access_token"),
         )

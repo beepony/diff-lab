@@ -47,6 +47,7 @@ class ShareLink(Base):
     access_token = Column(String, primary_key=True, unique=True, index=True)
     permission = Column(String, default="view")  # view | edit
     created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
 
     task = relationship("DiffTask", back_populates="share_links")
 
@@ -108,3 +109,14 @@ class TaskDetail(BaseModel):
     diff_result: dict  # 实际 diff 输出
     created_at: datetime
     share_token: Optional[str] = None
+
+
+class CreateShareRequest(BaseModel):
+    """创建分享链接的可选参数。"""
+    expires_in_days: int = Field(default=7, ge=1, le=90)
+
+
+class ShareLinkResponse(BaseModel):
+    token: str
+    permission: str
+    expires_at: datetime

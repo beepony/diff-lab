@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getTask, deleteTask, createShare, exportCsvUrl } from '@/api'
+import { createShare, deleteTask, exportCsv, getShare, getTask, revokeShare } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -10,7 +10,8 @@ const { t } = useI18n()
 
 const task = ref(null)
 const loading = ref(true)
-const shareToken = ref(null)
+const shareInfo = ref(null)
+const shareExpiryDays = ref(7)
 const copied = ref(false)
 
 const load = async () => {
@@ -18,6 +19,11 @@ const load = async () => {
   try {
     const data = await getTask(route.params.id)
     task.value = data
+    try {
+      shareInfo.value = await getShare(route.params.id)
+    } catch (e) {
+      if (e.response?.status !== 404) throw e
+    }
   } catch (e) {
     console.error(e)
   } finally {
@@ -33,8 +39,8 @@ const handleDelete = async () => {
 
 const handleShare = async () => {
   try {
-    const r = await createShare(route.params.id)
-    shareToken.value = r.token
+    const r = await createShare(route.params.id, { expires_in_days: shareExpiryDays.value })
+    shareInfo.value = r
     const url = `${window.location.origin}/share/${r.token}`
     await navigator.clipboard.writeText(url)
     copied.value = true
@@ -44,8 +50,28 @@ const handleShare = async () => {
   }
 }
 
-const handleExport = () => {
-  window.open(exportCsvUrl(route.params.id), '_blank')
+const handleRevokeShare = async () => {
+  if (!confirm(t('detail.confirmRevokeShare'))) return
+  try {
+    await revokeShare(route.params.id)
+    shareInfo.value = null
+  } catch (e) {
+    alert(t('alerts.shareFailed') + (e.response?.data?.detail || e.message))
+  }
+}
+
+const handleExport = async () => {
+  try {
+    const response = await exportCsv(route.params.id)
+    const url = URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `diff-${route.params.id}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert(t('alerts.exportFailed') + (e.response?.data?.detail || e.message))
+  }
 }
 
 const formatDate = (iso) => new Date(iso).toLocaleString(i18nLocaleRef.value)
@@ -90,9 +116,14 @@ onMounted(load)
     <header class="topbar">
       <router-link to="/" class="back">← {{ t('common.back') }}</router-link>
       <div class="actions">
+        <label v-if="task" class="share-expiry">
+          {{ t('detail.shareExpiryDays') }}
+          <input v-model.number="shareExpiryDays" type="number" min="1" max="90" />
+        </label>
         <button v-if="task" class="btn" @click="handleShare">
           {{ copied ? '✓ ' + t('common.copied') : '🔗 ' + t('detail.generateShare') }}
         </button>
+        <button v-if="shareInfo" class="btn btn-danger" @click="handleRevokeShare">{{ t('detail.revokeShare') }}</button>
         <button v-if="task" class="btn" @click="handleExport">📥 {{ t('detail.exportCsv') }}</button>
         <button v-if="task" class="btn btn-danger" @click="handleDelete">🗑 {{ t('common.delete') }}</button>
       </div>
@@ -111,6 +142,9 @@ onMounted(load)
             {{ t('detail.createdAt') }} {{ formatDate(task.created_at) }} ·
             {{ t(`modes.${task.mode}.name`) }} ·
             A <strong>{{ task.column_a.length }}</strong> / B <strong>{{ task.column_b.length }}</strong>
+          </div>
+          <div v-if="shareInfo" class="share-meta">
+            {{ t('detail.shareExpiresAt') }} {{ formatDate(shareInfo.expires_at) }}
           </div>
         </header>
 
@@ -220,6 +254,8 @@ onMounted(load)
 }
 .back { color: #635bff; text-decoration: none; font-size: 14px; font-weight: 500; }
 .actions { display: flex; gap: 8px; }
+.share-expiry { display: inline-flex; align-items: center; gap: 5px; color: #697386; font-size: 12px; }
+.share-expiry input { width: 46px; padding: 6px; border: 1px solid #d6dbe2; border-radius: 5px; }
 .btn {
   background: white;
   border: 1px solid #d6dbe2;
@@ -245,6 +281,7 @@ onMounted(load)
 .task-head { margin-bottom: 24px; }
 h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
 .meta { color: #697386; font-size: 14px; }
+.share-meta { margin-top: 4px; color: #697386; font-size: 12px; }
 .meta strong { color: #1a1f36; }
 
 .summary {

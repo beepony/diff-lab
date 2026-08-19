@@ -54,7 +54,20 @@ az containerapp hostname add \
   --hostname diff.your-domain.com
 ```
 
-## 5. 备份
+## 5. 管理员令牌（公网部署必配）
+
+设置一个足够长的随机值到 `DIFF_LAB_ADMIN_TOKEN`。配置后，创建、查看历史、导出、删除和分享管理接口必须携带该令牌；公开分享链接保持只读。
+
+Docker Compose 示例：
+
+```bash
+export DIFF_LAB_ADMIN_TOKEN="$(openssl rand -hex 32)"
+docker-compose up -d --build
+```
+
+令牌仅在浏览器当前会话保存；通过页面右下角“配置管理员令牌”输入。不要将令牌提交到 Git 或写入前端构建变量。
+
+## 6. 备份
 
 挂载的 SQLite 文件就是全部数据。定期下载即可：
 ```bash

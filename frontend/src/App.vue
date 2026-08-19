@@ -1,9 +1,11 @@
 <script setup>
 import { RouterView } from 'vue-router'
+import AdminAccess from '@/components/AdminAccess.vue'
 </script>
 
 <template>
   <RouterView />
+  <AdminAccess />
 </template>
 
 <style>

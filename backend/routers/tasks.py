@@ -3,17 +3,27 @@ import csv
 import io
 import json
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from auth import require_admin
 from db import get_db
-from models import DiffTask, ShareLink, CreateTaskRequest, TaskSummary, TaskDetail
+from models import (
+    CreateShareRequest,
+    CreateTaskRequest,
+    DiffTask,
+    ShareLink,
+    ShareLinkResponse,
+    TaskDetail,
+    TaskSummary,
+)
 from diff_engine import diff
 
 router = APIRouter(prefix="/api", tags=["tasks"])
+ADMIN_DEPENDENCIES = [Depends(require_admin)]
 
 
 def _get_active_task_or_404(task_id: str, db: Session) -> DiffTask:
@@ -31,7 +41,7 @@ def _csv_safe(value: str | None) -> str:
     return value
 
 
-@router.post("/tasks", response_model=TaskDetail, status_code=201)
+@router.post("/tasks", response_model=TaskDetail, status_code=201, dependencies=ADMIN_DEPENDENCIES)
 def create_task(req: CreateTaskRequest, db: Session = Depends(get_db)):
     """创建对比任务：执行 diff + 存 DB + 返回结果。"""
     result = diff(req.column_a, req.column_b, req.mode, req.options.model_dump())
@@ -51,7 +61,7 @@ def create_task(req: CreateTaskRequest, db: Session = Depends(get_db)):
     return _to_detail(task, result)
 
 
-@router.get("/tasks", response_model=list[TaskSummary])
+@router.get("/tasks", response_model=list[TaskSummary], dependencies=ADMIN_DEPENDENCIES)
 def list_tasks(db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=100)):
     """列出所有任务（按时间倒序）。"""
     tasks = (
@@ -80,7 +90,7 @@ def list_tasks(db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=10
     ]
 
 
-@router.get("/tasks/{task_id}", response_model=TaskDetail)
+@router.get("/tasks/{task_id}", response_model=TaskDetail, dependencies=ADMIN_DEPENDENCIES)
 def get_task(task_id: str, db: Session = Depends(get_db)):
     """获取任务详情 + 重新执行 diff（保证结果与当前数据一致）。"""
     task = _get_active_task_or_404(task_id, db)
@@ -90,7 +100,7 @@ def get_task(task_id: str, db: Session = Depends(get_db)):
     return _to_detail(task, result)
 
 
-@router.get("/tasks/{task_id}/export")
+@router.get("/tasks/{task_id}/export", dependencies=ADMIN_DEPENDENCIES)
 def export_task_csv(task_id: str, db: Session = Depends(get_db)):
     """导出对比结果为 CSV（流式响应）。"""
     task = _get_active_task_or_404(task_id, db)
@@ -114,7 +124,7 @@ def export_task_csv(task_id: str, db: Session = Depends(get_db)):
     return StreamingResponse(csv_gen(), headers=headers)
 
 
-@router.delete("/tasks/{task_id}", status_code=204)
+@router.delete("/tasks/{task_id}", status_code=204, dependencies=ADMIN_DEPENDENCIES)
 def delete_task(task_id: str, db: Session = Depends(get_db)):
     """删除任务（级联删除分享链接）。"""
     task = _get_active_task_or_404(task_id, db)
@@ -129,28 +139,57 @@ def preview_diff(req: CreateTaskRequest):
     return diff(req.column_a, req.column_b, req.mode, req.options.model_dump())
 
 
-@router.post("/tasks/{task_id}/share", response_model=dict)
-def create_share(task_id: str, db: Session = Depends(get_db)):
-    """生成分享链接：高熵随机 token，permission=view。"""
-    task = _get_active_task_or_404(task_id, db)
+@router.get("/tasks/{task_id}/share", response_model=ShareLinkResponse, dependencies=ADMIN_DEPENDENCIES)
+def get_share(task_id: str, db: Session = Depends(get_db)):
+    """获取任务当前有效的分享链接信息。"""
+    _get_active_task_or_404(task_id, db)
+    link = db.query(ShareLink).filter_by(task_id=task_id).first()
+    if not link or link.expires_at <= datetime.utcnow():
+        raise HTTPException(status_code=404, detail="Share link not found")
+    return _to_share_response(link)
 
-    # 已存在则返回
+
+@router.post("/tasks/{task_id}/share", response_model=ShareLinkResponse, dependencies=ADMIN_DEPENDENCIES)
+def create_share(
+    task_id: str,
+    req: CreateShareRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    """生成在指定天数后失效的高熵只读分享链接。"""
+    task = _get_active_task_or_404(task_id, db)
+    req = req or CreateShareRequest()
+
+    # 已存在的有效链接保持不变；过期链接会被替换。
     existing = db.query(ShareLink).filter_by(task_id=task_id).first()
+    if existing and existing.expires_at > datetime.utcnow():
+        return _to_share_response(existing)
     if existing:
-        return {"token": existing.access_token, "permission": existing.permission}
+        db.delete(existing)
+        db.flush()
+
+    expires_at = min(task.expires_at, datetime.utcnow() + timedelta(days=req.expires_in_days))
 
     for _ in range(5):
         token = secrets.token_urlsafe(16)
         if db.query(ShareLink).filter_by(access_token=token).first():
             continue
-        link = ShareLink(task_id=task_id, access_token=token, permission="view")
+        link = ShareLink(task_id=task_id, access_token=token, permission="view", expires_at=expires_at)
         db.add(link)
         try:
             db.commit()
-            return {"token": token, "permission": "view"}
+            return _to_share_response(link)
         except IntegrityError:
             db.rollback()
     raise HTTPException(status_code=503, detail="Could not create share link")
+
+
+@router.delete("/tasks/{task_id}/share", status_code=204, dependencies=ADMIN_DEPENDENCIES)
+def revoke_share(task_id: str, db: Session = Depends(get_db)):
+    """撤销任务的当前分享链接。可重复调用。"""
+    _get_active_task_or_404(task_id, db)
+    db.query(ShareLink).filter_by(task_id=task_id).delete(synchronize_session=False)
+    db.commit()
+    return None
 
 
 def _to_detail(task: DiffTask, result: dict) -> TaskDetail:
@@ -167,3 +206,7 @@ def _to_detail(task: DiffTask, result: dict) -> TaskDetail:
         created_at=task.created_at,
         share_token=None,  # 单独接口获取
     )
+
+
+def _to_share_response(link: ShareLink) -> ShareLinkResponse:
+    return ShareLinkResponse(token=link.access_token, permission=link.permission, expires_at=link.expires_at)

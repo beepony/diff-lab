@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/share", tags=["share"])
 def access_by_token(token: str, db: Session = Depends(get_db)):
     """通过分享 token 访问任务（只读）。"""
     link = db.query(ShareLink).filter_by(access_token=token).first()
-    if not link:
+    if not link or link.expires_at <= datetime.utcnow():
         raise HTTPException(status_code=404, detail="Invalid share token")
 
     task = db.query(DiffTask).filter_by(id=link.task_id).first()

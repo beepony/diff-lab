@@ -38,9 +38,16 @@ def _request_id(request: Request) -> str:
     return getattr(request.state, "request_id", "unknown")
 
 
-def _error_response(status_code: int, code: str, message: str, request: Request) -> JSONResponse:
+def _error_response(
+    status_code: int,
+    code: str,
+    message: str,
+    request: Request,
+    headers: dict[str, str] | None = None,
+) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
+        headers=headers,
         content={
             "detail": message,
             "error": {"code": code, "message": message, "request_id": _request_id(request)},
@@ -75,7 +82,7 @@ async def request_context_and_logging(request: Request, call_next):
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     message = exc.detail if isinstance(exc.detail, str) else "Request failed"
-    return _error_response(exc.status_code, "HTTP_ERROR", message, request)
+    return _error_response(exc.status_code, "HTTP_ERROR", message, request, headers=exc.headers)
 
 
 @app.exception_handler(RequestValidationError)

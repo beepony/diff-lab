@@ -45,6 +45,7 @@ def init_db():
     from models import DiffTask, ShareLink  # noqa: F401  确保模型在迁移/清理时可用
     _run_migrations()
     with SessionLocal() as db:
+        db.query(ShareLink).filter(ShareLink.expires_at <= datetime.utcnow()).delete(synchronize_session=False)
         expired_task_ids = select(DiffTask.id).where(DiffTask.expires_at <= datetime.utcnow())
         db.query(ShareLink).filter(ShareLink.task_id.in_(expired_task_ids)).delete(synchronize_session=False)
         db.query(DiffTask).filter(DiffTask.expires_at <= datetime.utcnow()).delete(synchronize_session=False)

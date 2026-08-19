@@ -103,6 +103,10 @@
     "shareCopied": "分享链接已复制到剪贴板",
     "confirmDelete": "确认删除这个对比任务？",
     "generateShare": "生成分享链接",
+    "revokeShare": "撤销分享",
+    "confirmRevokeShare": "确认撤销当前分享链接？",
+    "shareExpiryDays": "有效天数",
+    "shareExpiresAt": "分享链接过期时间：",
     "exportCsv": "导出 CSV"
   },
   "share": {
@@ -113,7 +117,15 @@
     "previewFailed": "预览失败：",
     "saveFailed": "保存失败：",
     "loadFailed": "加载失败：",
-    "shareFailed": "生成分享链接失败："
+    "shareFailed": "生成分享链接失败：",
+    "exportFailed": "导出失败："
+  },
+  "auth": {
+    "configure": "配置管理员令牌",
+    "configured": "管理员令牌已配置",
+    "adminToken": "管理员令牌",
+    "tokenHint": "仅保存于本次浏览器会话",
+    "clearToken": "清除令牌"
   },
   "history": {
     "rows": "行"

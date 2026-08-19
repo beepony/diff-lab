@@ -9,6 +9,7 @@ services:
       - diff-lab-data:/app/data
     environment:
       - DIFF_LAB_DB=/app/data/diff_lab.db
+      - DIFF_LAB_ADMIN_TOKEN=${DIFF_LAB_ADMIN_TOKEN:-}
       - TZ=Asia/Shanghai
 
 volumes:
