@@ -1,11 +1,11 @@
 <script setup>
 import { RouterView } from 'vue-router'
-import AdminAccess from '@/components/AdminAccess.vue'
+import ToastStack from '@/components/ToastStack.vue'
 </script>
 
 <template>
   <RouterView />
-  <AdminAccess />
+  <ToastStack />
 </template>
 
 <style>

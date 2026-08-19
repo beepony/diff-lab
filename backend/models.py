@@ -92,6 +92,8 @@ class TaskSummary(BaseModel):
     mode: str
     result_meta: Optional[dict] = None
     created_at: datetime
+    column_a_count: int
+    column_b_count: int
     share_token: Optional[str] = None  # 是否已分享
 
     model_config = ConfigDict(from_attributes=True)

@@ -14,49 +14,63 @@ const modes = [
   { key: 'intersect', icon: '🤝' },
 ]
 
-const toggleOption = (key) => {
+const setOption = (key, value) => {
   // 内部 option key 仍是英文（与后端 options schema 保持一致）
-  emit('update:options', { ...props.options, [key]: !props.options[key] })
+  emit('update:options', { ...props.options, [key]: value })
 }
 </script>
 
 <template>
-  <div class="mode-selector">
+  <fieldset class="mode-selector">
+    <legend class="sr-only">{{ t('home.stepMode') }}</legend>
     <div class="mode-grid">
-      <div
+      <label
         v-for="m in modes"
         :key="m.key"
         class="mode-card"
         :class="{ selected: modelValue === m.key }"
-        @click="emit('update:modelValue', m.key)"
       >
+        <input
+          class="mode-input"
+          type="radio"
+          name="diff-mode"
+          :value="m.key"
+          :checked="modelValue === m.key"
+          @change="emit('update:modelValue', m.key)"
+        />
         <div class="icon">{{ m.icon }}</div>
         <div class="name">{{ t(`modes.${m.key}.name`) }}</div>
         <div class="desc">{{ t(`modes.${m.key}.desc`) }}</div>
-      </div>
+      </label>
     </div>
 
     <div class="options">
       <div class="options-label">{{ t('modes.options') }}</div>
       <div class="toggle-list">
-        <div
+        <label
           class="toggle"
           :class="{ on: options.ignore_case }"
-          @click="toggleOption('ignore_case')"
-        >{{ t('modes.ignoreCase') }}</div>
-        <div
+        >
+          <input type="checkbox" :checked="options.ignore_case" @change="setOption('ignore_case', $event.target.checked)" />
+          {{ t('modes.ignoreCase') }}
+        </label>
+        <label
           class="toggle"
           :class="{ on: options.trim }"
-          @click="toggleOption('trim')"
-        >{{ t('modes.trim') }}</div>
-        <div
+        >
+          <input type="checkbox" :checked="options.trim" @change="setOption('trim', $event.target.checked)" />
+          {{ t('modes.trim') }}
+        </label>
+        <label
           class="toggle"
           :class="{ on: options.skip_empty }"
-          @click="toggleOption('skip_empty')"
-        >{{ t('modes.skipEmpty') }}</div>
+        >
+          <input type="checkbox" :checked="options.skip_empty" @change="setOption('skip_empty', $event.target.checked)" />
+          {{ t('modes.skipEmpty') }}
+        </label>
       </div>
     </div>
-  </div>
+  </fieldset>
 </template>
 
 <style scoped>
@@ -66,11 +80,22 @@ const toggleOption = (key) => {
   gap: 12px;
 }
 .mode-card {
+  position: relative;
   border: 2px solid #e6ebf1;
   border-radius: 8px;
   padding: 14px;
   cursor: pointer;
   transition: all 0.15s;
+}
+.mode-input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  cursor: pointer;
+}
+.mode-card:focus-within {
+  outline: 3px solid rgba(99, 91, 255, 0.25);
+  outline-offset: 2px;
 }
 .mode-card:hover {
   border-color: #c7d2fe;
@@ -107,6 +132,9 @@ const toggleOption = (key) => {
   gap: 8px;
 }
 .toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 14px;
   border-radius: 16px;
   background: #f6f9fc;
@@ -119,5 +147,21 @@ const toggleOption = (key) => {
   background: #e0e7ff;
   border-color: #635bff;
   color: #4f46e5;
+}
+.toggle input { accent-color: #635bff; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 640px) {
+  .mode-grid { grid-template-columns: 1fr; }
+  .mode-card { min-height: 96px; }
 }
 </style>

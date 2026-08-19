@@ -23,10 +23,10 @@ const clear = () => {
 
 <template>
   <div class="admin-access">
-    <button class="trigger" type="button" @click="editing = !editing">
+    <button class="trigger" type="button" :aria-expanded="editing" aria-controls="admin-token-panel" @click="editing = !editing">
       {{ configured ? t('auth.configured') : t('auth.configure') }}
     </button>
-    <form v-if="editing" class="panel" @submit.prevent="save">
+    <form v-if="editing" id="admin-token-panel" class="panel" @submit.prevent="save">
       <label for="admin-token">{{ t('auth.adminToken') }}</label>
       <input id="admin-token" v-model="token" type="password" autocomplete="off" :placeholder="t('auth.tokenHint')" />
       <div class="actions">
@@ -38,13 +38,13 @@ const clear = () => {
 </template>
 
 <style scoped>
-.admin-access { position: fixed; right: 16px; bottom: 16px; z-index: 30; }
+.admin-access { position: relative; z-index: 20; }
 .trigger, .actions button {
   border: 1px solid #d6dbe2; border-radius: 6px; background: white; color: #1a1f36;
   padding: 7px 10px; font-size: 12px; cursor: pointer;
 }
 .panel {
-  width: 260px; margin-bottom: 8px; padding: 12px; border: 1px solid #e6ebf1;
+  position: absolute; right: 0; top: calc(100% + 8px); width: 260px; padding: 12px; border: 1px solid #e6ebf1;
   border-radius: 8px; background: white; box-shadow: 0 8px 22px rgba(26, 31, 54, .14);
 }
 label { display: block; margin-bottom: 6px; color: #697386; font-size: 12px; }

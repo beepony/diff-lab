@@ -18,6 +18,10 @@ def test_create_task_trims_title_and_enforces_limit(client):
     assert created.status_code == 201
     assert created.json()["title"] == "report"
 
+    summary = client.get("/api/tasks").json()[0]
+    assert summary["column_a_count"] == 2
+    assert summary["column_b_count"] == 2
+
     too_many_lines = "\n".join(str(index) for index in range(1001))
     rejected = client.post("/api/preview", json=_payload(column_a=too_many_lines))
     assert rejected.status_code == 422

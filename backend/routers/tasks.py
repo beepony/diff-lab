@@ -84,6 +84,8 @@ def list_tasks(db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=10
             mode=t.mode,
             result_meta=json.loads(t.result_meta) if t.result_meta else None,
             created_at=t.created_at,
+            column_a_count=len(t.column_a.splitlines()),
+            column_b_count=len(t.column_b.splitlines()),
             share_token=share_tokens.get(t.id),
         )
         for t in tasks

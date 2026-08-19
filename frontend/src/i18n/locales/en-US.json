@@ -19,6 +19,7 @@
     "copy": "Copy",
     "copied": "Copied",
     "export": "Export",
+    "retry": "Retry",
     "share": "Share",
     "minimize": "Minimize",
     "empty": "No data"
@@ -27,7 +28,8 @@
     "newCompare": "New Compare",
     "historyCount": "Recent ({count})",
     "titlePlaceholder": "e.g. 2026-Q3 User List Verification",
-    "titleLabel": "Title (optional, saved to history)",
+    "titleLabel": "Title (optional)",
+    "defaultTitle": "Untitled comparison",
     "stepImport": "Import Data",
     "stepMode": "Select Mode",
     "stepResult": "Compare Result",
@@ -35,7 +37,8 @@
     "previewing": "Comparing...",
     "saveToHistory": "Save to History",
     "saving": "Saving...",
-    "emptyHint": "👆 Fill in A/B columns and click \"Preview\" to see the result"
+    "emptyHint": "👆 Fill in A/B columns and click \"Preview\" to see the result",
+    "historyEmpty": "No saved comparisons yet. Complete one to find it here."
   },
   "input": {
     "columnA": "Column A (one value per line)",
@@ -71,7 +74,18 @@
     "status": "Status",
     "noData": "No data",
     "headerA": "Column A",
-    "headerB": "Column B"
+    "headerB": "Column B",
+    "tableLabel": "Comparison result table. Scroll horizontally to view more columns.",
+    "searchLabel": "Search results",
+    "searchPlaceholder": "Search column A or B",
+    "filterLabel": "Filter results by status",
+    "filterAll": "All",
+    "shown": "Showing {shown} of {total}",
+    "noMatch": "No results match the current filters",
+    "pageSize": "Per page",
+    "previous": "Previous",
+    "next": "Next",
+    "pageInfo": "Page {page} of {totalPages}"
   },
   "status": {
     "match": "✓ Match",
@@ -90,17 +104,18 @@
     "createdAt": "Created at",
     "rowsA": "A rows",
     "rowsB": "B rows",
-    "splitView": "Side-by-Side Compare",
-    "tableView": "Row-by-Row Details",
-    "legendMatch": "✓ Match",
-    "legendDiff": "✗ Diff",
-    "legendEmpty": "— Empty",
+    "resultView": "Comparison results",
+    "sourceData": "Original input (by line number)",
+    "sourceDataHint": "Line numbers only help locate the source input; they do not mean values on the same A/B line match.",
     "colA": "Column A",
     "colB": "Column B",
     "emptyValue": "—",
     "notFound": "Task not found or deleted",
     "backHome": "Back to Home",
     "shareCopied": "Share link copied to clipboard",
+    "shareCreated": "Share link created. Copy it from the browser address bar.",
+    "shareRevoked": "Share link revoked",
+    "exportStarted": "CSV download started",
     "confirmDelete": "Confirm delete this compare task?",
     "generateShare": "Generate Share Link",
     "revokeShare": "Revoke Share",
@@ -118,14 +133,17 @@
     "saveFailed": "Save failed: ",
     "loadFailed": "Load failed: ",
     "shareFailed": "Generate share link failed: ",
-    "exportFailed": "Export failed: "
+    "exportFailed": "Export failed: ",
+    "deleteFailed": "Delete failed: "
   },
   "auth": {
     "configure": "Configure admin token",
     "configured": "Admin token configured",
     "adminToken": "Admin token",
     "tokenHint": "Stored only for this browser session",
-    "clearToken": "Clear token"
+    "clearToken": "Clear token",
+    "historyRequired": "An admin token is required to view history. Configure it in the page header, then retry.",
+    "accessRequired": "An admin token is required to view this task. Configure it in the page header, then retry."
   },
   "history": {
     "rows": "rows"

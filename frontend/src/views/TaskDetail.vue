@@ -3,19 +3,25 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { createShare, deleteTask, exportCsv, getShare, getTask, revokeShare } from '@/api'
+import AdminAccess from '@/components/AdminAccess.vue'
+import StepResult from '@/components/StepResult.vue'
+import { useToast } from '@/composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const toast = useToast()
 
 const task = ref(null)
 const loading = ref(true)
 const shareInfo = ref(null)
 const shareExpiryDays = ref(7)
 const copied = ref(false)
+const loadError = ref('')
 
 const load = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const data = await getTask(route.params.id)
     task.value = data
@@ -25,7 +31,11 @@ const load = async () => {
       if (e.response?.status !== 404) throw e
     }
   } catch (e) {
-    console.error(e)
+    loadError.value = e.response?.status === 401
+      ? t('auth.accessRequired')
+      : e.response?.status === 404
+        ? t('detail.notFound')
+        : t('alerts.loadFailed')
   } finally {
     loading.value = false
   }
@@ -33,20 +43,32 @@ const load = async () => {
 
 const handleDelete = async () => {
   if (!confirm(t('detail.confirmDelete'))) return
-  await deleteTask(route.params.id)
-  router.push('/')
+  try {
+    await deleteTask(route.params.id)
+    router.push('/')
+  } catch (e) {
+    toast.error(`${t('alerts.deleteFailed')}${errorMessage(e, e.message)}`)
+  }
 }
+
+const errorMessage = (error, fallback) => error.response?.data?.error?.message || error.response?.data?.detail || fallback
 
 const handleShare = async () => {
   try {
     const r = await createShare(route.params.id, { expires_in_days: shareExpiryDays.value })
     shareInfo.value = r
     const url = `${window.location.origin}/share/${r.token}`
-    await navigator.clipboard.writeText(url)
+    let copiedToClipboard = true
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      copiedToClipboard = false
+    }
     copied.value = true
     setTimeout(() => (copied.value = false), 2000)
+    toast.success(copiedToClipboard ? t('detail.shareCopied') : t('detail.shareCreated'))
   } catch (e) {
-    alert(t('alerts.shareFailed') + e.message)
+    toast.error(`${t('alerts.shareFailed')}${errorMessage(e, e.message)}`)
   }
 }
 
@@ -55,8 +77,9 @@ const handleRevokeShare = async () => {
   try {
     await revokeShare(route.params.id)
     shareInfo.value = null
+    toast.success(t('detail.shareRevoked'))
   } catch (e) {
-    alert(t('alerts.shareFailed') + (e.response?.data?.detail || e.message))
+    toast.error(`${t('alerts.shareFailed')}${errorMessage(e, e.message)}`)
   }
 }
 
@@ -69,8 +92,9 @@ const handleExport = async () => {
     link.download = `diff-${route.params.id}.csv`
     link.click()
     URL.revokeObjectURL(url)
+    toast.success(t('detail.exportStarted'))
   } catch (e) {
-    alert(t('alerts.exportFailed') + (e.response?.data?.detail || e.message))
+    toast.error(`${t('alerts.exportFailed')}${errorMessage(e, e.message)}`)
   }
 }
 
@@ -80,30 +104,17 @@ import { getLocale } from '@/i18n'
 const i18nLocaleRef = ref(getLocale())
 
 const stats = computed(() => task.value?.result_meta || {})
-const displayValue = (value) => value === null || value === undefined ? t('detail.emptyValue') : value
-
-// 构建双列视图
-const splitView = computed(() => {
+// 原始输入仅用于审计与定位，不表达跨列匹配关系。
+const sourceRows = computed(() => {
   if (!task.value) return { left: [], right: [] }
   const a = task.value.column_a
   const b = task.value.column_b
-  const rows = task.value.diff_result.rows
   const left = []
   const right = []
 
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    const aVal = a[i] ?? null
-    const bVal = b[i] ?? null
-    let status = 'empty'
-    if (aVal !== null) {
-      const found = rows.find(r => r.a === aVal && (r.b === bVal || (bVal === null && r.status === 'diff_a')))
-      status = found?.status || 'empty'
-    } else if (bVal !== null) {
-      const found = rows.find(r => r.b === bVal && r.status === 'diff_b')
-      status = found?.status || 'empty'
-    }
-    left.push({ idx: i + 1, value: aVal, status })
-    right.push({ idx: i + 1, value: bVal, status })
+    left.push({ idx: i + 1, value: a[i] ?? null })
+    right.push({ idx: i + 1, value: b[i] ?? null })
   }
   return { left, right }
 })
@@ -126,13 +137,19 @@ onMounted(load)
         <button v-if="shareInfo" class="btn btn-danger" @click="handleRevokeShare">{{ t('detail.revokeShare') }}</button>
         <button v-if="task" class="btn" @click="handleExport">📥 {{ t('detail.exportCsv') }}</button>
         <button v-if="task" class="btn btn-danger" @click="handleDelete">🗑 {{ t('common.delete') }}</button>
+        <AdminAccess />
       </div>
     </header>
 
     <main class="wrap">
-      <div v-if="loading" class="loading">{{ t('common.loading') }}</div>
-      <div v-else-if="!task" class="error">
-        <h2>{{ t('detail.notFound') }}</h2>
+      <div v-if="loading" class="loading-skeleton" aria-busy="true">
+        <div class="skeleton-heading"></div>
+        <div class="skeleton-summary"><span v-for="index in 3" :key="index"></span></div>
+        <div class="skeleton-panel"></div>
+      </div>
+      <div v-else-if="loadError || !task" class="error">
+        <h2>{{ loadError || t('detail.notFound') }}</h2>
+        <button class="btn" type="button" @click="load">{{ t('common.retry') }}</button>
         <router-link to="/" class="btn btn-primary">{{ t('detail.backHome') }}</router-link>
       </div>
       <template v-else>
@@ -168,74 +185,35 @@ onMounted(load)
           </div>
         </div>
 
-        <!-- 双列并排视图 -->
-        <section class="split-section">
-          <div class="split-head">
-            <h2>{{ t('detail.splitView') }}</h2>
-            <div class="legend">
-              <span class="legend-item ok">{{ t('detail.legendMatch') }}</span>
-              <span class="legend-item diff">{{ t('detail.legendDiff') }}</span>
-              <span class="legend-item empty">{{ t('detail.legendEmpty') }}</span>
-            </div>
-          </div>
-          <div class="split">
-            <div class="col">
-              <div class="col-head">{{ t('detail.colA') }}</div>
-              <div class="rows">
-                <div
-                  v-for="r in splitView.left"
-                  :key="`a-${r.idx}`"
-                  class="row"
-                  :class="r.status"
-                >
-                  <span class="row-num">{{ r.idx }}</span>
-                  <span class="row-val">{{ r.value ?? t('detail.emptyValue') }}</span>
-                </div>
-              </div>
-            </div>
-            <div class="col">
-              <div class="col-head">{{ t('detail.colB') }}</div>
-              <div class="rows">
-                <div
-                  v-for="r in splitView.right"
-                  :key="`b-${r.idx}`"
-                  class="row"
-                  :class="r.status"
-                >
-                  <span class="row-num">{{ r.idx }}</span>
-                  <span class="row-val">{{ r.value ?? t('detail.emptyValue') }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        <section class="result-section">
+          <h2>{{ t('detail.resultView') }}</h2>
+          <StepResult :result="task.diff_result" />
         </section>
 
-        <!-- 单表格视图 -->
-        <section class="table-section">
-          <h2>{{ t('detail.tableView') }}</h2>
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 40px">#</th>
-                <th>{{ t('result.headerA') }}</th>
-                <th>{{ t('result.headerB') }}</th>
-                <th style="width: 100px">{{ t('result.status') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, idx) in task.diff_result.rows" :key="idx">
-                <td class="idx">{{ idx + 1 }}</td>
-                <td>{{ displayValue(row.a) }}</td>
-                <td>{{ displayValue(row.b) }}</td>
-                <td>
-                  <span class="status-badge" :class="row.status">
-                    {{ t(`status.${row.status}`) }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+        <details class="source-data">
+          <summary>{{ t('detail.sourceData') }}</summary>
+          <p>{{ t('detail.sourceDataHint') }}</p>
+          <div class="source-grid">
+            <div class="source-column">
+              <div class="col-head">{{ t('detail.colA') }}</div>
+              <div class="rows">
+                <div v-for="r in sourceRows.left" :key="`a-${r.idx}`" class="row">
+                  <span class="row-num">{{ r.idx }}</span>
+                  <span class="row-val">{{ r.value ?? t('detail.emptyValue') }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="source-column">
+              <div class="col-head">{{ t('detail.colB') }}</div>
+              <div class="rows">
+                <div v-for="r in sourceRows.right" :key="`b-${r.idx}`" class="row">
+                  <span class="row-num">{{ r.idx }}</span>
+                  <span class="row-val">{{ r.value ?? t('detail.emptyValue') }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
       </template>
     </main>
   </div>
@@ -276,8 +254,15 @@ onMounted(load)
   margin: 0 auto;
   padding: 32px 24px 80px;
 }
-.loading, .error { text-align: center; padding: 64px 0; color: #697386; }
-.error h2 { margin-bottom: 16px; }
+.loading-skeleton { padding: 32px 0; }
+.skeleton-heading, .skeleton-summary span, .skeleton-panel { display: block; background: linear-gradient(90deg, #edf1f5 25%, #f8fafc 37%, #edf1f5 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+.skeleton-heading { width: 240px; height: 32px; border-radius: 6px; margin-bottom: 32px; }
+.skeleton-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+.skeleton-summary span { height: 96px; border-radius: 8px; }
+.skeleton-panel { height: 300px; border-radius: 12px; }
+.error { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; text-align: center; padding: 64px 0; color: #697386; }
+.error h2 { width: 100%; margin-bottom: 4px; }
+@keyframes shimmer { to { background-position: -400% 0; } }
 .task-head { margin-bottom: 24px; }
 h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
 .meta { color: #697386; font-size: 14px; }
@@ -304,28 +289,20 @@ h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
 .stat.diff .stat-num { color: #e03e3e; }
 .stat.total { border-left: 3px solid #635bff; }
 
-.split-section, .table-section {
+.result-section, .source-data {
   background: white;
   border: 1px solid #e6ebf1;
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 16px;
 }
-.split-head {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 12px;
-}
 h2 { font-size: 15px; font-weight: 600; }
-.legend { display: flex; gap: 8px; }
-.legend-item {
-  padding: 2px 8px; border-radius: 10px; font-size: 11px;
-}
-.legend-item.ok { background: #d1f4e0; color: #0a6b48; }
-.legend-item.diff { background: #ffe5e9; color: #b3093f; }
-.legend-item.empty { background: #f0f3f7; color: #697386; }
-
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #e6ebf1; border-radius: 8px; overflow: hidden; }
-.col { background: white; }
+.result-section h2 { margin-bottom: 16px; }
+.source-data { padding: 0; overflow: hidden; }
+.source-data summary { padding: 16px 20px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.source-data > p { padding: 0 20px 16px; color: #697386; font-size: 12px; }
+.source-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #e6ebf1; }
+.source-column { background: white; }
 .col-head {
   padding: 10px 14px;
   font-weight: 600; font-size: 13px;
@@ -342,28 +319,38 @@ h2 { font-size: 15px; font-weight: 600; }
 }
 .row-num { color: #c8c8c8; font-size: 11px; width: 36px; }
 .row-val { flex: 1; }
-.row.match { background: #f0faf5; }
-.row.diff_a, .row.diff_b { background: #fdf3f3; }
-.row.intersect { background: #f0faf5; }
 .row.empty .row-val { color: #c8c8c8; font-style: italic; }
-
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th {
-  text-align: left; padding: 10px 12px;
-  background: #f6f9fc; color: #697386;
-  font-size: 12px; font-weight: 600;
-  border-bottom: 1px solid #e6ebf1;
+@media (max-width: 640px) {
+  .topbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    gap: 10px;
+  }
+  .back { padding: 8px 0; }
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .actions > * { min-width: 0; }
+  .actions .btn, .actions :deep(.trigger) { justify-content: center; min-height: 38px; }
+  .share-expiry { grid-column: 1 / -1; justify-content: center; }
+  .actions > .btn-danger:last-of-type { grid-column: 1 / -1; }
+  .actions :deep(.admin-access) { grid-column: 1 / -1; }
+  .actions :deep(.panel) { left: 0; right: auto; width: min(260px, 100%); }
+  .wrap { padding: 24px 16px 48px; }
+  h1 { font-size: 24px; line-height: 1.3; }
+  .meta { font-size: 13px; }
+  .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .skeleton-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stat { padding: 12px; }
+  .stat-num { font-size: 24px; }
+  .result-section { padding: 16px; }
+  .source-data summary { padding: 16px; }
+  .source-data > p { padding: 0 16px 16px; }
+  .row { padding: 7px 8px; }
+  .row-num { width: 28px; }
+  .row-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
-td {
-  padding: 10px 12px; border-bottom: 1px solid #f0f3f7;
-  font-family: "SF Mono", Menlo, monospace;
-}
-.idx { color: #c8c8c8; }
-tr:hover td { background: #fafbfc; }
-.status-badge {
-  display: inline-block; padding: 2px 8px; border-radius: 10px;
-  font-size: 11px; font-weight: 500;
-}
-.status-badge.match, .status-badge.intersect { background: #d1f4e0; color: #0a6b48; }
-.status-badge.diff_a, .status-badge.diff_b { background: #ffe5e9; color: #b3093f; }
 </style>

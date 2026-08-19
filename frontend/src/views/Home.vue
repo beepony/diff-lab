@@ -6,10 +6,13 @@ import StepImport from '@/components/StepImport.vue'
 import StepMode from '@/components/StepMode.vue'
 import StepResult from '@/components/StepResult.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import AdminAccess from '@/components/AdminAccess.vue'
 import { createTask, previewDiff, listTasks } from '@/api'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const { t, locale } = useI18n()
+const toast = useToast()
 
 // 表单状态
 const title = ref('')
@@ -25,17 +28,25 @@ const previewing = ref(false)
 
 // 历史
 const history = ref([])
+const historyLoading = ref(true)
+const historyError = ref('')
 
 const canPreview = computed(() => columnA.value.trim() && columnB.value.trim())
-const canSave = computed(() => canPreview.value && title.value.trim())
+const canSave = computed(() => canPreview.value)
 
 const loadHistory = async () => {
+  historyLoading.value = true
+  historyError.value = ''
   try {
     history.value = await listTasks()
   } catch (e) {
-    console.error('Failed to load history:', e)
+    historyError.value = e.response?.status === 401 ? t('auth.historyRequired') : t('alerts.loadFailed')
+  } finally {
+    historyLoading.value = false
   }
 }
+
+const errorMessage = (error, fallback) => error.response?.data?.error?.message || error.response?.data?.detail || fallback
 
 const handlePreview = async () => {
   if (!canPreview.value) return
@@ -50,7 +61,7 @@ const handlePreview = async () => {
       options: options.value,
     })
   } catch (e) {
-    alert(t('alerts.previewFailed') + (e.response?.data?.detail || e.message))
+    toast.error(`${t('alerts.previewFailed')}${errorMessage(e, e.message)}`)
   } finally {
     previewing.value = false
   }
@@ -61,7 +72,7 @@ const handleSave = async () => {
   saving.value = true
   try {
     const task = await createTask({
-      title: title.value,
+      title: title.value.trim() || t('home.defaultTitle'),
       mode: mode.value,
       column_a: columnA.value,
       column_b: columnB.value,
@@ -69,7 +80,7 @@ const handleSave = async () => {
     })
     router.push(`/task/${task.id}`)
   } catch (e) {
-    alert(t('alerts.saveFailed') + (e.response?.data?.detail || e.message))
+    toast.error(`${t('alerts.saveFailed')}${errorMessage(e, e.message)}`)
   } finally {
     saving.value = false
   }
@@ -100,6 +111,7 @@ onMounted(loadHistory)
       <div class="actions">
         <button class="btn btn-solid" @click="loadDemo">📋 {{ t('app.loadDemo') }}</button>
         <LanguageSwitcher />
+        <AdminAccess />
       </div>
     </header>
 
@@ -156,7 +168,17 @@ onMounted(loadHistory)
       </section>
 
       <!-- 历史 -->
-      <section v-if="history.length" class="history-strip">
+      <section v-if="historyLoading" class="history-strip history-loading" aria-busy="true">
+        <div class="skeleton-title"></div>
+        <div class="skeleton-grid">
+          <div v-for="index in 3" :key="index" class="skeleton-card"></div>
+        </div>
+      </section>
+      <section v-else-if="historyError" class="history-strip recoverable-state">
+        <p>{{ historyError }}</p>
+        <button class="btn" type="button" @click="loadHistory">{{ t('common.retry') }}</button>
+      </section>
+      <section v-else-if="history.length" class="history-strip">
         <h3>{{ t('home.historyCount', { count: history.length }) }}</h3>
         <div class="history-grid">
           <router-link
@@ -168,7 +190,7 @@ onMounted(loadHistory)
             <div class="name">{{ t_item.title }}</div>
             <div class="meta">
               {{ formatDate(t_item.created_at) }} ·
-              {{ t_item.column_a?.length || '?' }} {{ t('history.rows') }} ·
+              A {{ t_item.column_a_count ?? '—' }} / B {{ t_item.column_b_count ?? '—' }} {{ t('history.rows') }} ·
               {{ modeName(t_item.mode) }}
             </div>
             <div v-if="t_item.result_meta" class="stats">
@@ -178,6 +200,10 @@ onMounted(loadHistory)
             </div>
           </router-link>
         </div>
+      </section>
+      <section v-else class="history-strip history-empty">
+        <h3>{{ t('home.historyCount', { count: 0 }) }}</h3>
+        <p>{{ t('home.historyEmpty') }}</p>
       </section>
     </main>
   </div>
@@ -378,5 +404,28 @@ onMounted(loadHistory)
   border-radius: 3px;
   background: #ffe5e9;
   color: #b3093f;
+}
+.history-loading { min-height: 132px; }
+.skeleton-title, .skeleton-card { background: linear-gradient(90deg, #f1f4f7 25%, #f8fafc 37%, #f1f4f7 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+.skeleton-title { width: 120px; height: 14px; border-radius: 4px; margin-bottom: 14px; }
+.skeleton-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.skeleton-card { height: 66px; border-radius: 8px; }
+.recoverable-state, .history-empty { color: #697386; font-size: 14px; }
+.recoverable-state { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.history-empty p { padding-top: 2px; }
+@keyframes shimmer { to { background-position: -400% 0; } }
+@media (max-width: 640px) {
+  .hero { padding: 36px 16px 44px; }
+  .hero h1 { font-size: 30px; }
+  .hero .sub { font-size: 14px; }
+  .wrap { padding: 0 16px 48px; margin-top: -20px; }
+  .step-head { flex-wrap: wrap; padding: 14px 16px; }
+  .step-actions { width: 100%; margin-left: 40px; }
+  .step-actions .btn { flex: 1; }
+  .step-body { padding: 16px; }
+  .dual-input { grid-template-columns: 1fr; gap: 12px; }
+  .history-grid { grid-template-columns: 1fr; }
+  .skeleton-grid { grid-template-columns: 1fr; }
+  .recoverable-state { align-items: flex-start; flex-direction: column; }
 }
 </style>

@@ -13,6 +13,8 @@ const loading = ref(true)
 const error = ref(null)
 
 const load = async () => {
+  loading.value = true
+  error.value = null
   try {
     task.value = await accessByToken(route.params.token)
   } catch (e) {
@@ -35,8 +37,13 @@ onMounted(load)
     </header>
 
     <main class="wrap">
-      <div v-if="loading">{{ t('common.loading') }}</div>
-      <div v-else-if="error" class="error">{{ error }}</div>
+      <div v-if="loading" class="loading-card" aria-busy="true">
+        <span></span><span></span><span></span>
+      </div>
+      <div v-else-if="error" class="error">
+        <p>{{ error }}</p>
+        <button type="button" @click="load">{{ t('common.retry') }}</button>
+      </div>
       <template v-else-if="task">
         <h1>{{ task.title }}</h1>
         <div class="meta">{{ t('detail.createdAt') }} {{ formatDate(task.created_at) }}</div>
@@ -83,4 +90,11 @@ h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
   padding: 16px;
   border-radius: 8px;
 }
+.error p { margin-bottom: 10px; }
+.error button { border: 1px solid currentColor; border-radius: 6px; background: white; color: inherit; padding: 6px 10px; cursor: pointer; }
+.loading-card { display: grid; gap: 12px; }
+.loading-card span { height: 18px; border-radius: 5px; background: linear-gradient(90deg, #edf1f5 25%, #f8fafc 37%, #edf1f5 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+.loading-card span:nth-child(2) { width: 72%; }
+.loading-card span:nth-child(3) { height: 220px; }
+@keyframes shimmer { to { background-position: -400% 0; } }
 </style>
