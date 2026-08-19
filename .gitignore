@@ -1,41 +1,23 @@
-# Python
+# Backend Python
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-*.egg-info/
 venv/
 env/
-
-# SQLite
 *.db
 *.sqlite
-*.sqlite3
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
 
 # Frontend
 node_modules/
 dist/
 .vite/
 *.local
-.parcel-cache/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+*.swp
 
 # Docker
 *.log
-
-# Env / secrets
-.env
-.env.local
-.env.*.local
