@@ -142,8 +142,10 @@
     "adminToken": "管理员令牌",
     "tokenHint": "仅保存于本次浏览器会话",
     "clearToken": "清除令牌",
-    "historyRequired": "需要管理员令牌才能查看历史记录。请在页面顶部配置令牌后重试。",
-    "accessRequired": "需要管理员令牌才能查看此任务。请在页面顶部配置令牌后重试。"
+    "verifying": "验证中…",
+    "invalidToken": "管理员令牌无效，或服务器尚未配置管理员令牌。",
+    "historyRequired": "查看历史记录失败，请稍后重试。",
+    "accessRequired": "查看任务失败，请稍后重试。"
   },
   "history": {
     "rows": "行"

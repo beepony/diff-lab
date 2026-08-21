@@ -28,6 +28,7 @@ class DiffTask(Base):
     column_b_meta = Column(Text, nullable=True)
     options = Column(Text, nullable=True)  # JSON 字符串
     result_meta = Column(Text, nullable=True)  # JSON: {match, fuzzy, diff, duration_ms}
+    owner_token_hash = Column(String(64), nullable=True)  # 匿名用户令牌的 SHA-256；旧任务为空
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False, default=lambda: datetime.utcnow() + timedelta(days=90))
@@ -36,6 +37,7 @@ class DiffTask(Base):
 
     __table_args__ = (
         Index("ix_diff_tasks_expires_created", "expires_at", "created_at"),
+        Index("ix_diff_tasks_owner_expires_created", "owner_token_hash", "expires_at", "created_at"),
     )
 
 
@@ -111,6 +113,7 @@ class TaskDetail(BaseModel):
     diff_result: dict  # 实际 diff 输出
     created_at: datetime
     share_token: Optional[str] = None
+    can_manage: bool = False
 
 
 class CreateShareRequest(BaseModel):

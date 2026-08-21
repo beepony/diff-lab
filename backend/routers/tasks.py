@@ -4,12 +4,12 @@ import io
 import json
 import secrets
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-from auth import require_admin
+from auth import is_admin, require_admin, user_token_hash
 from db import get_db
 from models import (
     CreateShareRequest,
@@ -33,6 +33,26 @@ def _get_active_task_or_404(task_id: str, db: Session) -> DiffTask:
     return task
 
 
+def _get_authorized_task_or_404(task_id: str, request: Request, db: Session) -> DiffTask:
+    """管理员可访问全部任务；匿名用户只能访问归属于当前浏览器的任务。"""
+    if is_admin(request):
+        return _get_active_task_or_404(task_id, db)
+
+    owner_hash = user_token_hash(request)
+    task = (
+        db.query(DiffTask)
+        .filter(
+            DiffTask.id == task_id,
+            DiffTask.owner_token_hash == owner_hash,
+            DiffTask.expires_at > datetime.utcnow(),
+        )
+        .first()
+    )
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+
 def _csv_safe(value: str | None) -> str:
     """避免 Excel/LibreOffice 把用户输入作为公式执行。"""
     value = "" if value is None else str(value)
@@ -41,9 +61,10 @@ def _csv_safe(value: str | None) -> str:
     return value
 
 
-@router.post("/tasks", response_model=TaskDetail, status_code=201, dependencies=ADMIN_DEPENDENCIES)
-def create_task(req: CreateTaskRequest, db: Session = Depends(get_db)):
+@router.post("/tasks", response_model=TaskDetail, status_code=201)
+def create_task(req: CreateTaskRequest, request: Request, db: Session = Depends(get_db)):
     """创建对比任务：执行 diff + 存 DB + 返回结果。"""
+    owner_hash = user_token_hash(request)
     result = diff(req.column_a, req.column_b, req.mode, req.options.model_dump())
 
     task = DiffTask(
@@ -53,30 +74,37 @@ def create_task(req: CreateTaskRequest, db: Session = Depends(get_db)):
         column_b=req.column_b,
         options=req.options.model_dump_json(),
         result_meta=json.dumps(result["summary"]),
+        owner_token_hash=owner_hash,
     )
     db.add(task)
     db.commit()
     db.refresh(task)
 
-    return _to_detail(task, result)
+    return _to_detail(task, result, can_manage=is_admin(request))
 
 
-@router.get("/tasks", response_model=list[TaskSummary], dependencies=ADMIN_DEPENDENCIES)
-def list_tasks(db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=100)):
-    """列出所有任务（按时间倒序）。"""
-    tasks = (
+@router.get("/tasks", response_model=list[TaskSummary])
+def list_tasks(request: Request, db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=100)):
+    """普通用户列出自己的任务；管理员列出全部任务。"""
+    query = (
         db.query(DiffTask)
         .filter(DiffTask.expires_at > datetime.utcnow())
-        .order_by(DiffTask.created_at.desc())
+    )
+    if not is_admin(request):
+        query = query.filter(DiffTask.owner_token_hash == user_token_hash(request))
+    tasks = (
+        query.order_by(DiffTask.created_at.desc())
         .limit(limit)
         .all()
     )
-    share_tokens = {
-        task_id: token
-        for task_id, token in db.query(ShareLink.task_id, ShareLink.access_token)
-        .filter(ShareLink.task_id.in_([task.id for task in tasks]))
-        .all()
-    } if tasks else {}
+    share_tokens = {}
+    if tasks and is_admin(request):
+        share_tokens = {
+            task_id: token
+            for task_id, token in db.query(ShareLink.task_id, ShareLink.access_token)
+            .filter(ShareLink.task_id.in_([task.id for task in tasks]))
+            .all()
+        }
     return [
         TaskSummary(
             id=t.id,
@@ -92,20 +120,20 @@ def list_tasks(db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=10
     ]
 
 
-@router.get("/tasks/{task_id}", response_model=TaskDetail, dependencies=ADMIN_DEPENDENCIES)
-def get_task(task_id: str, db: Session = Depends(get_db)):
+@router.get("/tasks/{task_id}", response_model=TaskDetail)
+def get_task(task_id: str, request: Request, db: Session = Depends(get_db)):
     """获取任务详情 + 重新执行 diff（保证结果与当前数据一致）。"""
-    task = _get_active_task_or_404(task_id, db)
+    task = _get_authorized_task_or_404(task_id, request, db)
 
     options = json.loads(task.options) if task.options else {}
     result = diff(task.column_a, task.column_b, task.mode, options)
-    return _to_detail(task, result)
+    return _to_detail(task, result, can_manage=is_admin(request))
 
 
-@router.get("/tasks/{task_id}/export", dependencies=ADMIN_DEPENDENCIES)
-def export_task_csv(task_id: str, db: Session = Depends(get_db)):
+@router.get("/tasks/{task_id}/export")
+def export_task_csv(task_id: str, request: Request, db: Session = Depends(get_db)):
     """导出对比结果为 CSV（流式响应）。"""
-    task = _get_active_task_or_404(task_id, db)
+    task = _get_authorized_task_or_404(task_id, request, db)
 
     options = json.loads(task.options) if task.options else {}
     result = diff(task.column_a, task.column_b, task.mode, options)
@@ -194,7 +222,13 @@ def revoke_share(task_id: str, db: Session = Depends(get_db)):
     return None
 
 
-def _to_detail(task: DiffTask, result: dict) -> TaskDetail:
+@router.get("/admin/status", dependencies=ADMIN_DEPENDENCIES)
+def admin_status():
+    """供前端保存管理员令牌时即时验证。"""
+    return {"authenticated": True}
+
+
+def _to_detail(task: DiffTask, result: dict, can_manage: bool = False) -> TaskDetail:
     """把 ORM 对象 + diff 结果转为 TaskDetail。"""
     return TaskDetail(
         id=task.id,
@@ -207,6 +241,7 @@ def _to_detail(task: DiffTask, result: dict) -> TaskDetail:
         diff_result=result,
         created_at=task.created_at,
         share_token=None,  # 单独接口获取
+        can_manage=can_manage,
     )
 
 

@@ -111,7 +111,7 @@ onMounted(loadHistory)
       <div class="actions">
         <button class="btn btn-solid" @click="loadDemo">📋 {{ t('app.loadDemo') }}</button>
         <LanguageSwitcher />
-        <AdminAccess />
+        <AdminAccess @changed="loadHistory" />
       </div>
     </header>
 

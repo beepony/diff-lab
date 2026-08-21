@@ -25,10 +25,13 @@ const load = async () => {
   try {
     const data = await getTask(route.params.id)
     task.value = data
-    try {
-      shareInfo.value = await getShare(route.params.id)
-    } catch (e) {
-      if (e.response?.status !== 404) throw e
+    shareInfo.value = null
+    if (data.can_manage) {
+      try {
+        shareInfo.value = await getShare(route.params.id)
+      } catch (e) {
+        if (e.response?.status !== 404) throw e
+      }
     }
   } catch (e) {
     loadError.value = e.response?.status === 401
@@ -127,17 +130,17 @@ onMounted(load)
     <header class="topbar">
       <router-link to="/" class="back">← {{ t('common.back') }}</router-link>
       <div class="actions">
-        <label v-if="task" class="share-expiry">
+        <label v-if="task?.can_manage" class="share-expiry">
           {{ t('detail.shareExpiryDays') }}
           <input v-model.number="shareExpiryDays" type="number" min="1" max="90" />
         </label>
-        <button v-if="task" class="btn" @click="handleShare">
+        <button v-if="task?.can_manage" class="btn" @click="handleShare">
           {{ copied ? '✓ ' + t('common.copied') : '🔗 ' + t('detail.generateShare') }}
         </button>
-        <button v-if="shareInfo" class="btn btn-danger" @click="handleRevokeShare">{{ t('detail.revokeShare') }}</button>
+        <button v-if="task?.can_manage && shareInfo" class="btn btn-danger" @click="handleRevokeShare">{{ t('detail.revokeShare') }}</button>
         <button v-if="task" class="btn" @click="handleExport">📥 {{ t('detail.exportCsv') }}</button>
-        <button v-if="task" class="btn btn-danger" @click="handleDelete">🗑 {{ t('common.delete') }}</button>
-        <AdminAccess />
+        <button v-if="task?.can_manage" class="btn btn-danger" @click="handleDelete">🗑 {{ t('common.delete') }}</button>
+        <AdminAccess @changed="load" />
       </div>
     </header>
 

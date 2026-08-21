@@ -21,11 +21,11 @@ uvicorn main:app --host 127.0.0.1 --port 8001 --reload
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | `POST` | `/api/tasks` | 创建对比任务 |
-| `GET` | `/api/tasks` | 列出所有任务 |
-| `GET` | `/api/tasks/{id}` | 获取任务详情 |
-| `DELETE` | `/api/tasks/{id}` | 删除任务 |
-| `POST` | `/api/tasks/{id}/share` | 生成分享链接 |
-| `GET` | `/api/share/{token}` | 通过分享链接访问 |
+| `GET` | `/api/tasks` | 普通用户列出自己的任务；管理员列出全部 |
+| `GET` | `/api/tasks/{id}` | 本人或管理员获取任务详情 |
+| `DELETE` | `/api/tasks/{id}` | 管理员删除任务 |
+| `POST` | `/api/tasks/{id}/share` | 管理员生成分享链接 |
+| `GET` | `/api/share/{token}` | 通过分享链接只读访问 |
 | `POST` | `/api/preview` | 实时预览（不存 DB） |
 
 ## 🧪 测试
@@ -44,6 +44,7 @@ curl http://127.0.0.1:8001/health
 # 创建任务
 curl -X POST http://127.0.0.1:8001/api/tasks \
   -H "Content-Type: application/json" \
+  -H "X-User-Token: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" \
   -d '{
     "title": "test",
     "mode": "find_diff",
@@ -60,7 +61,9 @@ curl -X POST http://127.0.0.1:8001/api/tasks \
 - 数据保留期：90 天；启动时会清理过期记录，接口也不会返回或导出过期任务
 - 单列限制：最多 1000 行、100,000 个字符
 - Schema 由 Alembic 在应用启动时升级；迁移文件位于 `alembic/versions/`
-- 如设置 `DIFF_LAB_ADMIN_TOKEN`，所有任务管理接口（创建、历史、导出、删除和分享管理）必须携带 `Authorization: Bearer <token>` 或 `X-Admin-Token`；公开分享链接仍保持只读访问。
+- 创建、历史、详情和导出使用 64 位十六进制 `X-User-Token` 进行匿名任务隔离；网页会自动生成该令牌，数据库只保存摘要。
+- 管理员接口必须配置 `DIFF_LAB_ADMIN_TOKEN`，并携带 `Authorization: Bearer <token>` 或 `X-Admin-Token`；未配置时管理员接口被禁用。
+- 升级前没有归属信息的旧任务只允许管理员访问；公开分享链接保持只读。
 
 ## 📁 项目结构
 

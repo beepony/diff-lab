@@ -142,8 +142,10 @@
     "adminToken": "Admin token",
     "tokenHint": "Stored only for this browser session",
     "clearToken": "Clear token",
-    "historyRequired": "An admin token is required to view history. Configure it in the page header, then retry.",
-    "accessRequired": "An admin token is required to view this task. Configure it in the page header, then retry."
+    "verifying": "Verifying…",
+    "invalidToken": "The admin token is invalid, or admin authentication is not configured on the server.",
+    "historyRequired": "Could not load history. Please try again.",
+    "accessRequired": "Could not load this task. Please try again."
   },
   "history": {
     "rows": "rows"

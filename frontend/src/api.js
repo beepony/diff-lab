@@ -6,12 +6,31 @@ const api = axios.create({
 })
 
 const ADMIN_TOKEN_KEY = 'diff-lab-admin-token'
+const USER_TOKEN_KEY = 'diff-lab-user-token'
+
+const generateUserToken = () => {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+const getUserToken = () => {
+  let token = localStorage.getItem(USER_TOKEN_KEY)
+  if (!/^[0-9a-f]{64}$/.test(token || '')) {
+    token = generateUserToken()
+    localStorage.setItem(USER_TOKEN_KEY, token)
+  }
+  return token
+}
 
 api.interceptors.request.use((config) => {
   const isPublicShareRequest = config.url?.startsWith('/share/')
-  const token = sessionStorage.getItem(ADMIN_TOKEN_KEY)
-  if (token && !isPublicShareRequest) {
-    config.headers.set('X-Admin-Token', token)
+  if (!isPublicShareRequest) {
+    config.headers.set('X-User-Token', getUserToken())
+    const adminToken = sessionStorage.getItem(ADMIN_TOKEN_KEY)
+    if (adminToken) {
+      config.headers.set('X-Admin-Token', adminToken)
+    }
   }
   return config
 })
@@ -19,6 +38,7 @@ api.interceptors.request.use((config) => {
 export const getAdminToken = () => sessionStorage.getItem(ADMIN_TOKEN_KEY) || ''
 export const setAdminToken = (token) => sessionStorage.setItem(ADMIN_TOKEN_KEY, token.trim())
 export const clearAdminToken = () => sessionStorage.removeItem(ADMIN_TOKEN_KEY)
+export const verifyAdminToken = () => api.get('/admin/status').then(r => r.data)
 
 // 任务相关
 export const createTask = (data) => api.post('/tasks', data).then(r => r.data)
