@@ -74,6 +74,12 @@ const setOption = (key, value) => {
 </template>
 
 <style scoped>
+.mode-selector {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
 .mode-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -92,10 +98,6 @@ const setOption = (key, value) => {
   opacity: 0;
   inset: 0;
   cursor: pointer;
-}
-.mode-card:focus-within {
-  outline: 3px solid rgba(99, 91, 255, 0.25);
-  outline-offset: 2px;
 }
 .mode-card:hover {
   border-color: #c7d2fe;
