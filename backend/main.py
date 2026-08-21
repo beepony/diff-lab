@@ -129,7 +129,16 @@ if STATIC_DIR.exists():
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
-    # 2. SPA 路由兜底：所有非 /api 的 GET 请求都返回 index.html 或对应静态文件
+    # 2. 根路径显式返回 index.html。Starlette 的 path 参数不会匹配空路径，
+    #    因此仅依赖下面的通配路由会导致 Docker 部署后访问 / 返回 404。
+    @app.get("/", include_in_schema=False)
+    def spa_root():
+        index = STATIC_DIR / "index.html"
+        if index.exists():
+            return FileResponse(index)
+        return {"error": "frontend not built"}
+
+    # 3. SPA 路由兜底：所有非 /api 的 GET 请求都返回 index.html 或对应静态文件
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa_fallback(full_path: str):
         # 先尝试返回静态文件（如 favicon.svg）

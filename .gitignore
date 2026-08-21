@@ -21,3 +21,6 @@ dist/
 
 # Docker
 *.log
+
+# Local deployment records and infrastructure details
+docs/DEPLOY_ALIYUN_ECS.md
