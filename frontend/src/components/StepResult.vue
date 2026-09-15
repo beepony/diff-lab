@@ -119,8 +119,7 @@ async function copyColumn(column) {
     </div>
 
     <div class="result-list-meta">
-      <span>{{ t('result.shown', { shown: visibleRows.length, total: filteredRows.length }) }}</span>
-      <span>{{ t('result.copyColumnHint') }}</span>
+      {{ t('result.shown', { shown: visibleRows.length, total: filteredRows.length }) }}
     </div>
 
     <div class="table-scroll" tabindex="0" :aria-label="t('result.tableLabel')">
@@ -134,7 +133,10 @@ async function copyColumn(column) {
                 <button type="button" class="column-copy-button" :disabled="!columnValues.a.length"
                   :aria-label="t('result.copyColumnAria', { column: t('result.headerA'), count: columnValues.a.length })"
                   @click="copyColumn('a')">
-                  📋 {{ t('result.copyColumn', { count: columnValues.a.length }) }}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="8" y="8" width="13" height="13" rx="2" />
+                    <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
+                  </svg>
                 </button>
               </div>
             </th>
@@ -144,7 +146,10 @@ async function copyColumn(column) {
                 <button type="button" class="column-copy-button" :disabled="!columnValues.b.length"
                   :aria-label="t('result.copyColumnAria', { column: t('result.headerB'), count: columnValues.b.length })"
                   @click="copyColumn('b')">
-                  📋 {{ t('result.copyColumn', { count: columnValues.b.length }) }}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="8" y="8" width="13" height="13" rx="2" />
+                    <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
+                  </svg>
                 </button>
               </div>
             </th>
@@ -232,11 +237,13 @@ async function copyColumn(column) {
 .filter-chip { padding: 6px 9px; cursor: pointer; }
 .filter-chip span { color: #697386; margin-left: 3px; }
 .filter-chip.active { border-color: #635bff; background: #f4f3ff; color: #4f46e5; font-weight: 600; }
-.result-list-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #697386; font-size: 12px; margin-bottom: 8px; }
+.result-list-meta { color: #697386; font-size: 12px; margin-bottom: 8px; }
 .column-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.column-copy-button { padding: 4px 7px; border: 1px solid #635bff; border-radius: 5px; background: #f4f3ff; color: #4f46e5; font: inherit; font-size: 11px; white-space: nowrap; cursor: pointer; }
-.column-copy-button:hover:not(:disabled) { background: #e9e7ff; }
-.column-copy-button:disabled { opacity: .5; cursor: not-allowed; }
+.column-copy-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 26px; width: 26px; height: 26px; padding: 5px; border: 0; border-radius: 5px; background: transparent; color: #697386; cursor: pointer; }
+.column-copy-button svg { width: 16px; height: 16px; }
+.column-copy-button:hover:not(:disabled) { background: #e9e7ff; color: #4f46e5; }
+.column-copy-button:focus-visible { outline: 2px solid #635bff; outline-offset: 2px; }
+.column-copy-button:disabled { opacity: .45; cursor: default; }
 .table-scroll { overflow-x: auto; }
 table {
   min-width: 620px;
@@ -311,7 +318,6 @@ tr:hover td { background: #fafbfc; }
   .result-tools { align-items: stretch; flex-direction: column; }
   .search-field { flex-basis: auto; }
   .filter-list { justify-content: flex-start; }
-  .result-list-meta { flex-wrap: wrap; }
   .pagination { align-items: flex-start; flex-direction: column; }
 }
 </style>
