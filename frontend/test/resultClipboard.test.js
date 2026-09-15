@@ -1,37 +1,41 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { formatResultForClipboard } from '../src/utils/resultClipboard.js'
+import { formatColumnForClipboard, resultColumnValues } from '../src/utils/resultClipboard.js'
 
-const headers = ['A 列', 'B 列', '状态']
-const labels = {
-  intersect: '交集',
-  match: '匹配',
-  diff_a: '仅 A',
-  diff_b: '仅 B',
-}
+const rows = [
+  { a: 'shared', b: 'shared B', status: 'match' },
+  { a: 'only A', b: null, status: 'diff_a' },
+  { a: null, b: 'only B', status: 'diff_b' },
+  { a: 'shared', b: 'shared B again', status: 'match' },
+]
 
-test('copies every result row in order, including rows from all compare modes', () => {
-  const rows = [
-    { a: 'shared', b: 'shared', status: 'intersect' },
-    { a: 'lookup', b: 'lookup', status: 'match' },
-    { a: 'only A', b: null, status: 'diff_a' },
-    { a: null, b: 'only B', status: 'diff_b' },
-  ]
+test('copies only the chosen column from the status-filtered result', () => {
+  const matches = rows.filter(row => row.status === 'match')
+  assert.equal(formatColumnForClipboard(resultColumnValues(matches, 'a')), 'shared\nshared')
+  assert.equal(formatColumnForClipboard(resultColumnValues(matches, 'b')), 'shared B\nshared B again')
 
-  assert.equal(
-    formatResultForClipboard(rows, headers, status => labels[status]),
-    'A 列\tB 列\t状态\nshared\tshared\t交集\nlookup\tlookup\t匹配\nonly A\t\t仅 A\n\tonly B\t仅 B',
-  )
+  const onlyA = rows.filter(row => row.status === 'diff_a')
+  assert.equal(formatColumnForClipboard(resultColumnValues(onlyA, 'a')), 'only A')
+  assert.deepEqual(resultColumnValues(onlyA, 'b'), [])
+
+  const onlyB = rows.filter(row => row.status === 'diff_b')
+  assert.deepEqual(resultColumnValues(onlyB, 'a'), [])
+  assert.equal(formatColumnForClipboard(resultColumnValues(onlyB, 'b')), 'only B')
 })
 
-test('quotes spreadsheet delimiters and prevents pasted input from becoming a formula', () => {
-  const rows = [
-    { a: '=1+1', b: ' quoted "value" ', status: 'match' },
-    { a: '  @SUM(A1:A2)', b: 'a\tb', status: 'diff_a' },
-  ]
+test('includes all filtered rows beyond the first page and skips only null cells', () => {
+  const manyRows = Array.from({ length: 30 }, (_, index) => ({ a: `value-${index + 1}`, b: null }))
+  manyRows.push({ a: null, b: 'B value' }, { a: '', b: null })
+  const values = resultColumnValues(manyRows, 'a')
 
+  assert.equal(values.length, 31)
+  assert.equal(formatColumnForClipboard(values), `${Array.from({ length: 30 }, (_, index) => `value-${index + 1}`).join('\n')}\n`)
+})
+
+test('quotes spreadsheet delimiters and prevents pasted values from becoming formulas', () => {
+  const values = ['=1+1', '  @SUM(A1:A2)', 'a\tb', 'quoted "value"']
   assert.equal(
-    formatResultForClipboard(rows, headers, status => labels[status]),
-    'A 列\tB 列\t状态\n\'=1+1\t" quoted ""value"" "\t匹配\n\'  @SUM(A1:A2)\t"a\tb"\t仅 A',
+    formatColumnForClipboard(values),
+    '\'=1+1\n\'  @SUM(A1:A2)\n"a\tb"\n"quoted ""value"""',
   )
 })

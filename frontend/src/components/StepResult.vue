@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
-import { formatResultForClipboard } from '@/utils/resultClipboard'
+import { formatColumnForClipboard, resultColumnValues } from '@/utils/resultClipboard'
 const { t } = useI18n()
 const toast = useToast()
 
@@ -42,6 +42,10 @@ const visibleRows = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return filteredRows.value.slice(start, start + pageSize.value)
 })
+const columnValues = computed(() => ({
+  a: resultColumnValues(filteredRows.value, 'a'),
+  b: resultColumnValues(filteredRows.value, 'b'),
+}))
 
 watch([activeStatus, search, pageSize], () => { page.value = 1 })
 watch(pageCount, (count) => { if (page.value > count) page.value = count })
@@ -54,15 +58,10 @@ function displayValue(value) {
   return value === null || value === undefined ? '—' : value
 }
 
-async function copyAllResults() {
-  const rows = props.result?.rows || []
-  if (!rows.length) return
-
-  const text = formatResultForClipboard(
-    rows,
-    [t('result.headerA'), t('result.headerB'), t('result.status')],
-    statusLabel,
-  )
+async function copyColumn(column) {
+  const values = columnValues.value[column]
+  if (!values.length) return
+  const text = formatColumnForClipboard(values)
 
   try {
     if (navigator.clipboard?.writeText) {
@@ -80,7 +79,7 @@ async function copyAllResults() {
         input.remove()
       }
     }
-    toast.success(t('result.copySuccess', { count: rows.length }))
+    toast.success(t('result.copyColumnSuccess', { column: t(`result.header${column.toUpperCase()}`), count: values.length }))
   } catch {
     toast.error(t('result.copyFailed'))
   }
@@ -121,9 +120,7 @@ async function copyAllResults() {
 
     <div class="result-list-meta">
       <span>{{ t('result.shown', { shown: visibleRows.length, total: filteredRows.length }) }}</span>
-      <button type="button" class="copy-button" :disabled="!result.rows?.length" @click="copyAllResults">
-        📋 {{ t('result.copyAll', { count: result.rows?.length || 0 }) }}
-      </button>
+      <span>{{ t('result.copyColumnHint') }}</span>
     </div>
 
     <div class="table-scroll" tabindex="0" :aria-label="t('result.tableLabel')">
@@ -131,8 +128,26 @@ async function copyAllResults() {
         <thead>
           <tr>
             <th style="width: 64px">#</th>
-            <th>{{ t('result.headerA') }}</th>
-            <th>{{ t('result.headerB') }}</th>
+            <th>
+              <div class="column-heading">
+                <span>{{ t('result.headerA') }}</span>
+                <button type="button" class="column-copy-button" :disabled="!columnValues.a.length"
+                  :aria-label="t('result.copyColumnAria', { column: t('result.headerA'), count: columnValues.a.length })"
+                  @click="copyColumn('a')">
+                  📋 {{ t('result.copyColumn', { count: columnValues.a.length }) }}
+                </button>
+              </div>
+            </th>
+            <th>
+              <div class="column-heading">
+                <span>{{ t('result.headerB') }}</span>
+                <button type="button" class="column-copy-button" :disabled="!columnValues.b.length"
+                  :aria-label="t('result.copyColumnAria', { column: t('result.headerB'), count: columnValues.b.length })"
+                  @click="copyColumn('b')">
+                  📋 {{ t('result.copyColumn', { count: columnValues.b.length }) }}
+                </button>
+              </div>
+            </th>
             <th style="width: 120px">{{ t('result.status') }}</th>
           </tr>
         </thead>
@@ -218,9 +233,10 @@ async function copyAllResults() {
 .filter-chip span { color: #697386; margin-left: 3px; }
 .filter-chip.active { border-color: #635bff; background: #f4f3ff; color: #4f46e5; font-weight: 600; }
 .result-list-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #697386; font-size: 12px; margin-bottom: 8px; }
-.copy-button { padding: 6px 10px; border: 1px solid #635bff; border-radius: 6px; background: #f4f3ff; color: #4f46e5; font: inherit; font-weight: 600; cursor: pointer; }
-.copy-button:hover:not(:disabled) { background: #e9e7ff; }
-.copy-button:disabled { opacity: .5; cursor: not-allowed; }
+.column-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.column-copy-button { padding: 4px 7px; border: 1px solid #635bff; border-radius: 5px; background: #f4f3ff; color: #4f46e5; font: inherit; font-size: 11px; white-space: nowrap; cursor: pointer; }
+.column-copy-button:hover:not(:disabled) { background: #e9e7ff; }
+.column-copy-button:disabled { opacity: .5; cursor: not-allowed; }
 .table-scroll { overflow-x: auto; }
 table {
   min-width: 620px;
