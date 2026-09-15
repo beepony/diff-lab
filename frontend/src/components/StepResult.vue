@@ -1,7 +1,10 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useToast } from '@/composables/useToast'
+import { formatResultForClipboard } from '@/utils/resultClipboard'
 const { t } = useI18n()
+const toast = useToast()
 
 const props = defineProps({
   result: Object,  // { rows, summary }
@@ -50,6 +53,38 @@ function statusLabel(s) {
 function displayValue(value) {
   return value === null || value === undefined ? '—' : value
 }
+
+async function copyAllResults() {
+  const rows = props.result?.rows || []
+  if (!rows.length) return
+
+  const text = formatResultForClipboard(
+    rows,
+    [t('result.headerA'), t('result.headerB'), t('result.status')],
+    statusLabel,
+  )
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const input = document.createElement('textarea')
+      input.value = text
+      input.style.position = 'fixed'
+      input.style.opacity = '0'
+      document.body.appendChild(input)
+      try {
+        input.select()
+        if (!document.execCommand('copy')) throw new Error('Clipboard unavailable')
+      } finally {
+        input.remove()
+      }
+    }
+    toast.success(t('result.copySuccess', { count: rows.length }))
+  } catch {
+    toast.error(t('result.copyFailed'))
+  }
+}
 </script>
 
 <template>
@@ -85,7 +120,10 @@ function displayValue(value) {
     </div>
 
     <div class="result-list-meta">
-      {{ t('result.shown', { shown: visibleRows.length, total: filteredRows.length }) }}
+      <span>{{ t('result.shown', { shown: visibleRows.length, total: filteredRows.length }) }}</span>
+      <button type="button" class="copy-button" :disabled="!result.rows?.length" @click="copyAllResults">
+        📋 {{ t('result.copyAll', { count: result.rows?.length || 0 }) }}
+      </button>
     </div>
 
     <div class="table-scroll" tabindex="0" :aria-label="t('result.tableLabel')">
@@ -179,7 +217,10 @@ function displayValue(value) {
 .filter-chip { padding: 6px 9px; cursor: pointer; }
 .filter-chip span { color: #697386; margin-left: 3px; }
 .filter-chip.active { border-color: #635bff; background: #f4f3ff; color: #4f46e5; font-weight: 600; }
-.result-list-meta { color: #697386; font-size: 12px; margin-bottom: 8px; }
+.result-list-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #697386; font-size: 12px; margin-bottom: 8px; }
+.copy-button { padding: 6px 10px; border: 1px solid #635bff; border-radius: 6px; background: #f4f3ff; color: #4f46e5; font: inherit; font-weight: 600; cursor: pointer; }
+.copy-button:hover:not(:disabled) { background: #e9e7ff; }
+.copy-button:disabled { opacity: .5; cursor: not-allowed; }
 .table-scroll { overflow-x: auto; }
 table {
   min-width: 620px;
@@ -254,6 +295,7 @@ tr:hover td { background: #fafbfc; }
   .result-tools { align-items: stretch; flex-direction: column; }
   .search-field { flex-basis: auto; }
   .filter-list { justify-content: flex-start; }
+  .result-list-meta { flex-wrap: wrap; }
   .pagination { align-items: flex-start; flex-direction: column; }
 }
 </style>

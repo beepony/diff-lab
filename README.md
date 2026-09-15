@@ -24,6 +24,7 @@
 - **历史保存** · 自动持久化，90 天保留
 - **分享链接** · 一键生成高熵 token，无需登录（默认 7 天、最长不超过任务 90 天保留期，可撤销）
 - **安全导出** · CSV 流式下载、UTF-8 BOM 与公式注入防护
+- **一键复制结果** · 三种模式均可复制全部对比行，直接粘贴到表格，不受筛选和分页影响
 - **访问控制** · 匿名用户按浏览器隔离任务；管理员可管理全部任务；分享链接只读
 - **可靠 SQLite** · WAL、外键、busy timeout、过期清理与健康检查
 - **可演进数据结构** · Alembic 自动升级数据库 schema
@@ -250,6 +251,7 @@ MIT — 详见 [LICENSE](LICENSE)
 - **History** · Auto-saved, 90-day retention
 - **Share links** · Generate high-entropy tokens, no login required (7 days by default, capped by the task's 90-day retention, and revocable)
 - **Safe export** · Streaming CSV with UTF-8 BOM and spreadsheet-formula injection protection
+- **Copy all results** · Copy every comparison row in any mode as spreadsheet-ready text, regardless of filters or pagination
 - **Access control** · Browser-scoped anonymous ownership, global admin management, and read-only sharing
 - **Reliable SQLite** · WAL, foreign keys, busy timeout, expiry cleanup, and health checks
 - **Schema migrations** · Alembic automatically upgrades the database schema at startup
